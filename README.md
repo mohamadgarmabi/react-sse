@@ -14,11 +14,11 @@ A TypeScript package for using Server-Sent Events (SSE) in React with full suppo
 ## Installation
 
 ```bash
-npm install react-sse-hook
+npm install sse-shared-worker-react-hook
 # or
-yarn add react-sse-hook
+yarn add sse-shared-worker-react-hook
 # or
-pnpm install react-sse-hook
+pnpm install sse-shared-worker-react-hook
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ pnpm install react-sse-hook
 ### Simple Example
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function MyComponent() {
   const { status, lastEvent, events, error } = useSSE('/api/events');
@@ -57,7 +57,7 @@ function MyComponent() {
 ### With Token Authentication
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function AuthenticatedComponent() {
   const token = 'your-auth-token';
@@ -80,7 +80,7 @@ function AuthenticatedComponent() {
 ### With Type Safety
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 interface NotificationData {
   id: string;
@@ -110,7 +110,7 @@ function TypedComponent() {
 ### Manual Connection Control
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function ControlledComponent() {
   const { status, close, reconnect } = useSSE('/api/events', {
@@ -131,7 +131,7 @@ function ControlledComponent() {
 ### With Custom Headers
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function CustomHeadersComponent() {
   const { status, lastEvent } = useSSE('/api/events', {
@@ -149,7 +149,7 @@ function CustomHeadersComponent() {
 ### With Custom Retry Delay Function
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function CustomRetryComponent() {
   const { status, retryCount } = useSSE('/api/events', {
@@ -232,7 +232,7 @@ module.exports = {
 ### Example using Shared Worker
 
 ```tsx
-import { useSSEWithSharedWorker } from 'react-sse-hook';
+import { useSSEWithSharedWorker } from 'sse-shared-worker-react-hook';
 
 function SharedWorkerComponent() {
   const { status, lastEvent, events, error } = useSSEWithSharedWorker(
@@ -301,7 +301,7 @@ function Tab2Component() {
 ### Type Safety with Shared Worker
 
 ```tsx
-import { useSSEWithSharedWorker } from 'react-sse-hook';
+import { useSSEWithSharedWorker } from 'sse-shared-worker-react-hook';
 
 interface StockPrice {
   symbol: string;
@@ -413,7 +413,7 @@ interface SSEEvent<T> {
 
 ```tsx
 import { useEffect } from 'react';
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 interface UserStatus {
   userId: string;
@@ -452,7 +452,7 @@ function UserStatusComponent() {
 ### Error Handling
 
 ```tsx
-import { useSSE } from 'react-sse-hook';
+import { useSSE } from 'sse-shared-worker-react-hook';
 
 function ErrorHandlingComponent() {
   const { status, error, retryCount, reconnect } = useSSE('/api/events', {
