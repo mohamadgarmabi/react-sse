@@ -174,49 +174,69 @@ class SSESharedWorker {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    break;
-                }
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                // Optimize: preserve incomplete line for next iteration
-                buffer = lines.pop() || '';
-                let eventType = 'message';
-                let eventData = '';
-                let eventId;
-                for (const line of lines) {
-                    if (line.startsWith('event:')) {
-                        eventType = line.substring(6).trim();
-                    }
-                    else if (line.startsWith('data:')) {
-                        eventData += (eventData ? '\n' : '') + line.substring(5).trim();
-                    }
-                    else if (line.startsWith('id:')) {
-                        eventId = line.substring(3).trim();
-                    }
-                }
-                if (eventData && this.currentConnection) {
+            try {
+                while (true) {
+                    let readResult;
                     try {
-                        const parsedData = JSON.parse(eventData);
-                        const event = {
-                            type: eventType,
-                            data: parsedData,
-                            id: eventId,
-                            timestamp: Date.now(),
-                        };
-                        this.handleSSEEvent(event);
+                        readResult = await reader.read();
                     }
-                    catch {
-                        const event = {
-                            type: eventType,
-                            data: eventData,
-                            id: eventId,
-                            timestamp: Date.now(),
-                        };
-                        this.handleSSEEvent(event);
+                    catch (readErr) {
+                        // Connection error during read - treat as connection failure
+                        throw new Error('Connection lost while reading stream');
                     }
+                    const { done, value } = readResult;
+                    if (done) {
+                        // Stream ended - treat as connection failure
+                        throw new Error('Stream ended unexpectedly');
+                    }
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    // Optimize: preserve incomplete line for next iteration
+                    buffer = lines.pop() || '';
+                    let eventType = 'message';
+                    let eventData = '';
+                    let eventId;
+                    for (const line of lines) {
+                        if (line.startsWith('event:')) {
+                            eventType = line.substring(6).trim();
+                        }
+                        else if (line.startsWith('data:')) {
+                            eventData += (eventData ? '\n' : '') + line.substring(5).trim();
+                        }
+                        else if (line.startsWith('id:')) {
+                            eventId = line.substring(3).trim();
+                        }
+                    }
+                    if (eventData && this.currentConnection) {
+                        try {
+                            const parsedData = JSON.parse(eventData);
+                            const event = {
+                                type: eventType,
+                                data: parsedData,
+                                id: eventId,
+                                timestamp: Date.now(),
+                            };
+                            this.handleSSEEvent(event);
+                        }
+                        catch {
+                            const event = {
+                                type: eventType,
+                                data: eventData,
+                                id: eventId,
+                                timestamp: Date.now(),
+                            };
+                            this.handleSSEEvent(event);
+                        }
+                    }
+                }
+            }
+            finally {
+                // Ensure reader is released
+                try {
+                    await reader.cancel();
+                }
+                catch {
+                    // Ignore cancellation errors
                 }
             }
         }
@@ -230,6 +250,11 @@ class SSESharedWorker {
     }
     connectWithEventSource(url, options) {
         const { maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, } = options;
+        // Close existing EventSource if any
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
         this.eventSource = new EventSource(url);
         this.eventSource.onopen = () => {
             if (this.currentConnection) {
@@ -265,6 +290,11 @@ class SSESharedWorker {
             // The EventSource.onerror fires on every error or closed connection
             // but only report as error if actually closed (per spec)
             if (this.eventSource?.readyState === EventSource.CLOSED) {
+                // Close EventSource to prevent automatic retries
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
                 const error = new Error('SSE connection error');
                 this.handleError(error, options);
             }
