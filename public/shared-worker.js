@@ -380,4 +380,3 @@ class SSESharedWorker {
 }
 // Initialize Shared Worker
 new SSESharedWorker();
-export {};

@@ -110,6 +110,7 @@ export function useSSE<T = any>(
       // This is a more complex implementation but necessary for custom headers
       let abortController: AbortController | null = null;
       let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+      let isCleaningUp = false;
 
       const connectWithFetch = async () => {
         try {
@@ -151,7 +152,23 @@ export function useSSE<T = any>(
           let buffer = '';
 
           while (true) {
-            const { done, value } = await reader.read();
+            // Check if we're cleaning up before reading
+            if (isCleaningUp) {
+              break;
+            }
+
+            let readResult;
+            try {
+              readResult = await reader.read();
+            } catch (readErr) {
+              // If read fails due to abort, break silently
+              if (readErr instanceof Error && (readErr.name === 'AbortError' || readErr.name === 'AbortException')) {
+                break;
+              }
+              throw readErr;
+            }
+
+            const { done, value } = readResult;
 
             if (done) {
               break;
@@ -214,28 +231,31 @@ export function useSSE<T = any>(
             }
           }
         } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') {
-            // Connection was intentionally closed
+          // Silently handle AbortError - it's expected during cleanup
+          if (err instanceof Error && (err.name === 'AbortError' || err.name === 'AbortException')) {
             return;
           }
 
-          const error = err instanceof Error ? err : new Error('Unknown error');
-          setError(error);
-          setStatus('error');
+          // Only handle errors if we're not cleaning up
+          if (!isCleaningUp) {
+            const error = err instanceof Error ? err : new Error('Unknown error');
+            setError(error);
+            setStatus('error');
 
-          // Retry logic
-          if (shouldReconnectRef.current && retryAttemptRef.current < maxRetries) {
-            retryAttemptRef.current += 1;
-            setRetryCount(retryAttemptRef.current);
+            // Retry logic
+            if (shouldReconnectRef.current && retryAttemptRef.current < maxRetries) {
+              retryAttemptRef.current += 1;
+              setRetryCount(retryAttemptRef.current);
 
-            const delay = calculateRetryDelay(retryAttemptRef.current - 1);
-            retryTimeoutRef.current = setTimeout(() => {
-              if (shouldReconnectRef.current && urlRef.current) {
-                connectWithFetch();
-              }
-            }, delay);
-          } else {
-            setStatus('disconnected');
+              const delay = calculateRetryDelay(retryAttemptRef.current - 1);
+              retryTimeoutRef.current = setTimeout(() => {
+                if (shouldReconnectRef.current && urlRef.current && !isCleaningUp) {
+                  connectWithFetch();
+                }
+              }, delay);
+            } else {
+              setStatus('disconnected');
+            }
           }
         }
       };
@@ -243,11 +263,14 @@ export function useSSE<T = any>(
       connectWithFetch();
 
       return () => {
+        isCleaningUp = true;
         if (abortController) {
           abortController.abort();
         }
         if (reader) {
-          reader.cancel();
+          reader.cancel().catch(() => {
+            // Ignore cancellation errors
+          });
         }
         cleanup();
       };

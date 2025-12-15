@@ -54,7 +54,7 @@ export function useSSEWithSharedWorker<T = any>(
 
     try {
       // Create Shared Worker
-      const worker = new SharedWorker(workerPath, { type: 'module' });
+      const worker = new SharedWorker(workerPath);
       workerRef.current = worker;
       portRef.current = worker.port;
 
