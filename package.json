@@ -1,0 +1,30 @@
+{
+  "name": "@your-org/react-sse",
+  "version": "1.0.0",
+  "description": "Type-safe Server-Sent Events (SSE) hook for React with token authentication and retry logic",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && npm run build:worker",
+    "build:worker": "tsc --project tsconfig.worker.json",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react",
+    "sse",
+    "server-sent-events",
+    "typescript",
+    "hook"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.0"
+  }
+}
+
