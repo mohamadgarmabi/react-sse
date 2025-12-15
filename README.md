@@ -107,6 +107,51 @@ function TypedComponent() {
 }
 ```
 
+### With Type-Safe Event Types
+
+```tsx
+import { useSSE } from 'sse-shared-worker-react-hook';
+
+interface MessageData {
+  text: string;
+  userId: string;
+}
+
+interface ErrorData {
+  code: string;
+  message: string;
+}
+
+// Define allowed event types
+type EventTypes = 'message' | 'error' | 'update';
+
+function TypedEventComponent() {
+  const { lastEvent, events } = useSSE<MessageData | ErrorData, EventTypes>(
+    '/api/events',
+    {
+      token: 'your-token',
+    }
+  );
+
+  // lastEvent.type is now typed as EventTypes
+  // TypeScript will enforce that only 'message' | 'error' | 'update' are valid
+  return (
+    <div>
+      {events.map((event, index) => {
+        if (event.type === 'message') {
+          // TypeScript knows event.data is MessageData here
+          return <div key={index}>{event.data.text}</div>;
+        } else if (event.type === 'error') {
+          // TypeScript knows event.data is ErrorData here
+          return <div key={index}>Error: {event.data.message}</div>;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+```
+
 ### Manual Connection Control
 
 ```tsx
@@ -332,15 +377,69 @@ function StockTracker() {
 }
 ```
 
+### Type-Safe Event Types with Shared Worker
+
+```tsx
+import { useSSEWithSharedWorker } from 'sse-shared-worker-react-hook';
+
+interface NotificationData {
+  title: string;
+  body: string;
+}
+
+type NotificationEventTypes = 'notification' | 'alert' | 'system';
+
+function NotificationComponent() {
+  const { lastEvent, events } = useSSEWithSharedWorker<
+    NotificationData,
+    NotificationEventTypes
+  >('/api/notifications', {
+    token: 'your-token',
+  });
+
+  // event.type is now typed as NotificationEventTypes
+  return (
+    <div>
+      {events.map((event, index) => (
+        <div key={index}>
+          <h4>Type: {event.type}</h4>
+          <p>{event.data.title}</p>
+          <p>{event.data.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
 ## API Reference
 
-### `useSSE<T>(url, options?)`
+### `useSSE<T, K>(url, options?)`
 
 A React Hook for connecting to an SSE endpoint (each component has a separate connection).
 
-### `useSSEWithSharedWorker<T>(url, options?, workerPath?)`
+#### Generic Parameters
+
+- `T` - Type of the event data (default: `any`)
+- `K` - Type of the event type (default: `string`)
+
+#### Parameters
+
+- `url: string | null` - URL endpoint for SSE
+- `options?: SSEOptions` - Configuration options
+
+#### Returns
+
+`SSEReturn<T, K>` - See below for details.
+
+### `useSSEWithSharedWorker<T, K>(url, options?, workerPath?)`
 
 A React Hook for connecting to an SSE endpoint using Shared Worker (one connection for all tabs).
+
+#### Generic Parameters
+
+- `T` - Type of the event data (default: `any`)
+- `K` - Type of the event type (default: `string`)
 
 #### Parameters
 
@@ -350,24 +449,19 @@ A React Hook for connecting to an SSE endpoint using Shared Worker (one connecti
 
 #### Returns
 
-Same `SSEReturn<T>` as used in `useSSE`.
+`SSEReturn<T, K>` - See below for details.
 
-#### Parameters
-
-- `url: string | null` - URL endpoint for SSE
-- `options?: SSEOptions` - Configuration options
-
-#### Returns
+### `SSEReturn<T, K>`
 
 ```typescript
-{
-  status: SSEStatus;           // Connection status
-  lastEvent: SSEEvent<T> | null; // Last received event
-  events: SSEEvent<T>[];       // All received events
-  error: Error | null;         // Error (if any)
-  close: () => void;           // Close connection
-  reconnect: () => void;       // Reconnect
-  retryCount: number;          // Retry attempt count
+interface SSEReturn<T, K extends string = string> {
+  status: SSEStatus;                    // Connection status
+  lastEvent: SSEEvent<T, K> | null;      // Last received event
+  events: SSEEvent<T, K>[];              // All received events
+  error: Error | null;                   // Error (if any)
+  close: () => void;                     // Close connection
+  reconnect: () => void;                 // Reconnect
+  retryCount: number;                    // Retry attempt count
 }
 ```
 
@@ -396,15 +490,40 @@ type SSEStatus =
   | 'closed';       // Closed
 ```
 
-### `SSEEvent<T>`
+### `SSEEvent<T, K>`
 
 ```typescript
-interface SSEEvent<T> {
-  type: string;        // Event type
-  data: T;            // Event data
+interface SSEEvent<T = any, K extends string = string> {
+  type: K;            // Event type (type-safe with generic K)
+  data: T;            // Event data (type-safe with generic T)
   id?: string;        // Event ID (from server)
   timestamp: number;  // Receive timestamp
 }
+```
+
+**Example:**
+```typescript
+// Without generics (defaults to any, string)
+const event: SSEEvent = {
+  type: 'message',
+  data: { text: 'Hello' },
+  timestamp: Date.now()
+};
+
+// With data type only
+const typedEvent: SSEEvent<{ text: string }> = {
+  type: 'message',
+  data: { text: 'Hello' },
+  timestamp: Date.now()
+};
+
+// With both data and event type
+type EventTypes = 'message' | 'error' | 'update';
+const fullyTypedEvent: SSEEvent<{ text: string }, EventTypes> = {
+  type: 'message', // TypeScript enforces: must be 'message' | 'error' | 'update'
+  data: { text: 'Hello' },
+  timestamp: Date.now()
+};
 ```
 
 ## Advanced Examples
@@ -423,7 +542,7 @@ interface UserStatus {
 function UserStatusComponent() {
   const [users, setUsers] = useState<Map<string, boolean>>(new Map());
   
-  const { lastEvent } = useSSE<UserStatus>('/api/user-status', {
+  const { lastEvent } = useSSE<UserStatus, 'user-status'>('/api/user-status', {
     token: localStorage.getItem('token') || undefined,
   });
 

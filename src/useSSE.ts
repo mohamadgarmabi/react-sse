@@ -20,10 +20,10 @@ const MAX_EVENTS = 100;
  * });
  * ```
  */
-export function useSSE<T = any>(
+export function useSSE<T = any, K extends string = string>(
   url: string | null,
   options: SSEOptions = {}
-): SSEReturn<T> {
+): SSEReturn<T, K> {
   const {
     token,
     maxRetryDelay = 30000,
@@ -35,8 +35,8 @@ export function useSSE<T = any>(
   } = options;
 
   const [status, setStatus] = useState<SSEStatus>('disconnected');
-  const [lastEvent, setLastEvent] = useState<SSEEvent<T> | null>(null);
-  const [events, setEvents] = useState<SSEEvent<T>[]>([]);
+  const [lastEvent, setLastEvent] = useState<SSEEvent<T, K> | null>(null);
+  const [events, setEvents] = useState<SSEEvent<T, K>[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -195,15 +195,15 @@ export function useSSE<T = any>(
             if (eventData) {
               try {
                 const parsedData: T = JSON.parse(eventData);
-                const event: SSEEvent<T> = {
-                  type: eventType,
+                const event: SSEEvent<T, K> = {
+                  type: eventType as K,
                   data: parsedData,
                   id: eventId,
                   timestamp: Date.now(),
                 };
 
               setLastEvent(event);
-              setEvents((prev: SSEEvent<T>[]) => {
+              setEvents((prev: SSEEvent<T, K>[]) => {
                 const newEvents = [...prev, event];
                 // Limit events array size to prevent memory issues
                 return newEvents.length > MAX_EVENTS 
@@ -212,15 +212,15 @@ export function useSSE<T = any>(
               });
               } catch (e) {
                 // If parsing fails, use raw data
-                const event: SSEEvent<T> = {
-                  type: eventType,
+                const event: SSEEvent<T, K> = {
+                  type: eventType as K,
                   data: eventData as T,
                   id: eventId,
                   timestamp: Date.now(),
                 };
 
               setLastEvent(event);
-              setEvents((prev: SSEEvent<T>[]) => {
+              setEvents((prev: SSEEvent<T, K>[]) => {
                 const newEvents = [...prev, event];
                 // Limit events array size to prevent memory issues
                 return newEvents.length > MAX_EVENTS 
@@ -291,15 +291,15 @@ export function useSSE<T = any>(
       eventSource.onmessage = (e) => {
         try {
           const parsedData: T = JSON.parse(e.data);
-          const event: SSEEvent<T> = {
-            type: 'message',
+          const event: SSEEvent<T, K> = {
+            type: 'message' as K,
             data: parsedData,
             id: e.lastEventId || undefined,
             timestamp: Date.now(),
           };
 
               setLastEvent(event);
-              setEvents((prev: SSEEvent<T>[]) => {
+              setEvents((prev: SSEEvent<T, K>[]) => {
                 const newEvents = [...prev, event];
                 // Limit events array size to prevent memory issues
                 return newEvents.length > MAX_EVENTS 
@@ -307,15 +307,15 @@ export function useSSE<T = any>(
                   : newEvents;
               });
         } catch {
-          const event: SSEEvent<T> = {
-            type: 'message',
+          const event: SSEEvent<T, K> = {
+            type: 'message' as K,
             data: e.data as T,
             id: e.lastEventId || undefined,
             timestamp: Date.now(),
           };
 
               setLastEvent(event);
-              setEvents((prev: SSEEvent<T>[]) => {
+              setEvents((prev: SSEEvent<T, K>[]) => {
                 const newEvents = [...prev, event];
                 // Limit events array size to prevent memory issues
                 return newEvents.length > MAX_EVENTS 
@@ -355,14 +355,14 @@ export function useSSE<T = any>(
         if (e.data) {
           try {
             const parsedData: T = JSON.parse(e.data);
-            const event: SSEEvent<T> = {
-              type: 'error',
+            const event: SSEEvent<T, K> = {
+              type: 'error' as K,
               data: parsedData,
               timestamp: Date.now(),
             };
 
               setLastEvent(event);
-              setEvents((prev: SSEEvent<T>[]) => {
+              setEvents((prev: SSEEvent<T, K>[]) => {
                 const newEvents = [...prev, event];
                 // Limit events array size to prevent memory issues
                 return newEvents.length > MAX_EVENTS 

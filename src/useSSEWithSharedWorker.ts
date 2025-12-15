@@ -23,18 +23,18 @@ const MAX_EVENTS = 100;
  * });
  * ```
  */
-export function useSSEWithSharedWorker<T = any>(
+export function useSSEWithSharedWorker<T = any, K extends string = string>(
   url: string | null,
   options: SSEOptions = {},
   workerPath: string = '/shared-worker.js'
-): SSEReturn<T> {
+): SSEReturn<T, K> {
   const {
     maxRetries = 5,
   } = options;
 
   const [status, setStatus] = useState<SSEStatus>('disconnected');
-  const [lastEvent, setLastEvent] = useState<SSEEvent<T> | null>(null);
-  const [events, setEvents] = useState<SSEEvent<T>[]>([]);
+  const [lastEvent, setLastEvent] = useState<SSEEvent<T, K> | null>(null);
+  const [events, setEvents] = useState<SSEEvent<T, K>[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -78,9 +78,9 @@ export function useSSEWithSharedWorker<T = any>(
             break;
 
           case 'EVENT':
-            const eventData = message.payload.event as SSEEvent<T>;
+            const eventData = message.payload.event as SSEEvent<T, K>;
             setLastEvent(eventData);
-            setEvents((prev: SSEEvent<T>[]) => {
+            setEvents((prev: SSEEvent<T, K>[]) => {
               const newEvents = [...prev, eventData];
               // Limit events array size to prevent memory issues
               return newEvents.length > MAX_EVENTS 

@@ -76,7 +76,7 @@ export interface SSEEvent<T = any, K extends string = string> {
 /**
  * Return type of the useSSE hook
  */
-export interface SSEReturn<T = any> {
+export interface SSEReturn<T = any, K extends string = string> {
   /**
    * Current connection status
    */
@@ -85,12 +85,12 @@ export interface SSEReturn<T = any> {
   /**
    * Last received event
    */
-  lastEvent: SSEEvent<T> | null;
+  lastEvent: SSEEvent<T, K> | null;
   
   /**
    * All received events
    */
-  events: SSEEvent<T>[];
+  events: SSEEvent<T, K>[];
   
   /**
    * Error object if connection failed
