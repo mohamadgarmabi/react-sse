@@ -51,11 +51,11 @@ export type SSEStatus = 'connecting' | 'connected' | 'disconnected' | 'error' | 
 /**
  * SSE event data
  */
-export interface SSEEvent<T = any> {
+export interface SSEEvent<T = any, K extends string = string> {
   /**
    * Event type (default: 'message')
    */
-  type: string;
+  type: K;
   
   /**
    * Event data
