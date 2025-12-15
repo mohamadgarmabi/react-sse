@@ -28,6 +28,10 @@ export function useSSEWithSharedWorker<T = any>(
   options: SSEOptions = {},
   workerPath: string = '/shared-worker.js'
 ): SSEReturn<T> {
+  const {
+    maxRetries = 5,
+  } = options;
+
   const [status, setStatus] = useState<SSEStatus>('disconnected');
   const [lastEvent, setLastEvent] = useState<SSEEvent<T> | null>(null);
   const [events, setEvents] = useState<SSEEvent<T>[]>([]);
