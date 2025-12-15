@@ -1,5 +1,5 @@
 {
-  "name": "@react-tools/react-sse",
+  "name": "react-sse-hook",
   "version": "1.0.0",
   "description": "Type-safe Server-Sent Events (SSE) hook for React with token authentication and retry logic",
   "main": "dist/index.js",
@@ -16,7 +16,7 @@
     "typescript",
     "hook"
   ],
-  "author": "Mohammad Garmabi",
+  "author": "Mohammad Garmabi <garmabi.mohammad@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
     "react": ">=16.8.0"
