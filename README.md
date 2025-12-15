@@ -198,7 +198,7 @@ export default defineConfig({
       name: 'copy-shared-worker',
       buildStart() {
         copyFileSync(
-          join(__dirname, 'node_modules/react-sse/dist-hook/shared-worker.js'),
+          join(__dirname, 'node_modules/sse-shared-worker-react-hook/dist-hook/shared-worker.js'),
           join(__dirname, 'public/shared-worker.js')
         );
       },
@@ -220,7 +220,7 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: 'node_modules/react-sse/dist-hook/shared-worker.js',
+          from: 'node_modules/sse-shared-worker-react-hook/dist-hook/shared-worker.js',
           to: 'shared-worker.js',
         },
       ],

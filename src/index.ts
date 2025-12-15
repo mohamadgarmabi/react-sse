@@ -1,5 +1,6 @@
 export { useSSE } from './useSSE';
 export { useSSEWithSharedWorker } from './useSSEWithSharedWorker';
+export { SSEDevtools } from './SSEDevtools';
 export type {
   SSEOptions,
   SSEStatus,
