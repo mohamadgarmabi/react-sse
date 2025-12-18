@@ -125,9 +125,9 @@ class SSESharedWorker {
         this.establishConnection(url, options);
     }
     establishConnection(url, options) {
-        const { token, headers = {}, maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, retryDelayFn, } = options;
-        // Use fetch API if token or custom headers are provided
-        if (token || Object.keys(headers).length > 0) {
+        const { headers = {}, } = options;
+        // Use fetch API if custom headers are provided
+        if (Object.keys(headers).length > 0) {
             this.connectWithFetch(url, options);
         }
         else {
@@ -135,7 +135,7 @@ class SSESharedWorker {
         }
     }
     async connectWithFetch(url, options) {
-        const { token, headers = {}, maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, retryDelayFn, } = options;
+        const { headers = {}, maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, retryDelayFn, } = options;
         try {
             if (this.currentConnection) {
                 this.currentConnection.status = 'connecting';
@@ -150,9 +150,6 @@ class SSESharedWorker {
                 'Cache-Control': 'no-cache',
                 ...headers,
             };
-            if (token) {
-                requestHeaders['Authorization'] = `Bearer ${token}`;
-            }
             const response = await fetch(url, {
                 method: 'GET',
                 headers: requestHeaders,
