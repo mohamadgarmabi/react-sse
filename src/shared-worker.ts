@@ -164,16 +164,11 @@ class SSESharedWorker {
 
   private establishConnection(url: string, options: SSEOptions) {
     const {
-      token,
       headers = {},
-      maxRetryDelay = 30000,
-      initialRetryDelay = 1000,
-      maxRetries = 5,
-      retryDelayFn,
     } = options;
 
-    // Use fetch API if token or custom headers are provided
-    if (token || Object.keys(headers).length > 0) {
+    // Use fetch API if custom headers are provided
+    if (Object.keys(headers).length > 0) {
       this.connectWithFetch(url, options);
     } else {
       this.connectWithEventSource(url, options);
@@ -182,7 +177,6 @@ class SSESharedWorker {
 
   private async connectWithFetch(url: string, options: SSEOptions) {
     const {
-      token,
       headers = {},
       maxRetryDelay = 30000,
       initialRetryDelay = 1000,
@@ -206,10 +200,6 @@ class SSESharedWorker {
         'Cache-Control': 'no-cache',
         ...headers,
       };
-
-      if (token) {
-        requestHeaders['Authorization'] = `Bearer ${token}`;
-      }
 
       const response = await fetch(url, {
         method: 'GET',

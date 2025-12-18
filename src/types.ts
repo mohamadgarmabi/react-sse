@@ -1,11 +1,23 @@
 /**
+ * Connection mode for SSE
+ */
+export type ConnectionMode = 'auto' | 'manual';
+
+/**
  * Configuration options for SSE connection
  */
 export interface SSEOptions {
   /**
-   * Authentication token to be sent in the Authorization header
+   * Connection mode: 'auto' connects automatically, 'manual' requires explicit connect() call
+   * @default 'auto'
    */
-  token?: string;
+  connectionMode?: ConnectionMode;
+  
+  /**
+   * Delay in milliseconds before auto-connecting (only used in 'auto' mode)
+   * @default 0
+   */
+  autoConnectDelay?: number;
   
   /**
    * Maximum delay between retry attempts in milliseconds
@@ -96,6 +108,11 @@ export interface SSEReturn<T = any, K extends string = string> {
    * Error object if connection failed
    */
   error: Error | null;
+  
+  /**
+   * Manually connect the connection (required in 'manual' mode)
+   */
+  connect: () => void;
   
   /**
    * Manually close the connection

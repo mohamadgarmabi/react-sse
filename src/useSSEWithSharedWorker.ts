@@ -17,7 +17,7 @@ const MAX_EVENTS = 100;
  * @example
  * ```tsx
  * const { status, lastEvent, events, error } = useSSEWithSharedWorker('/api/events', {
- *   token: 'your-auth-token',
+ *   headers: { 'Authorization': 'Bearer your-auth-token' },
  *   maxRetries: 3,
  *   maxRetryDelay: 10000
  * });
@@ -29,6 +29,8 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
   workerPath: string = '/shared-worker.js'
 ): SSEReturn<T, K> {
   const {
+    connectionMode = 'auto',
+    autoConnectDelay = 0,
     maxRetries = 5,
   } = options;
 
@@ -37,6 +39,7 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
   const [events, setEvents] = useState<SSEEvent<T, K>[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [shouldConnect, setShouldConnect] = useState(connectionMode === 'auto');
 
   const workerRef = useRef<SharedWorker | null>(null);
   const portRef = useRef<MessagePort | null>(null);
@@ -48,6 +51,29 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
+
+  // Handle auto-connect delay
+  useEffect(() => {
+    if (!url) {
+      return;
+    }
+
+    // In manual mode, don't auto-connect
+    if (connectionMode === 'manual') {
+      return;
+    }
+
+    // Auto-connect with delay if specified
+    if (autoConnectDelay > 0) {
+      const timeout = setTimeout(() => {
+        setShouldConnect(true);
+      }, autoConnectDelay);
+      return () => clearTimeout(timeout);
+    } else {
+      // No delay, connect immediately
+      setShouldConnect(true);
+    }
+  }, [url, connectionMode, autoConnectDelay]);
 
   // Initialize Shared Worker
   useEffect(() => {
@@ -121,12 +147,6 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
           payload: { clientId: clientIdRef.current },
         } as WorkerMessage);
         isSubscribedRef.current = true;
-
-        // Connect to SSE endpoint
-        port.postMessage({
-          type: 'CONNECT',
-          payload: { url, options: optionsRef.current },
-        } as WorkerMessage);
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to create Shared Worker');
@@ -153,17 +173,30 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
     };
   }, [url, workerPath]); // options handled via ref
 
-  // Update options when they change (using ref to avoid dependency issues)
+  // Connect to SSE endpoint when shouldConnect changes
   useEffect(() => {
+    if (!url || !shouldConnect || !isSubscribedRef.current || !portRef.current) {
+      return;
+    }
+
+    portRef.current.postMessage({
+      type: 'CONNECT',
+      payload: { url, options: optionsRef.current },
+    } as WorkerMessage);
+  }, [url, shouldConnect]); // options handled via ref
+
+  const connect = useCallback(() => {
+    setShouldConnect(true);
     if (portRef.current && url && isSubscribedRef.current) {
       portRef.current.postMessage({
         type: 'CONNECT',
         payload: { url, options: optionsRef.current },
       } as WorkerMessage);
     }
-  }, [url]); // Only depend on url, options are handled via ref
+  }, [url]);
 
   const close = useCallback(() => {
+    setShouldConnect(false);
     if (portRef.current) {
       portRef.current.postMessage({
         type: 'DISCONNECT',
@@ -186,9 +219,10 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
     lastEvent,
     events,
     error,
+    connect,
     close,
     reconnect,
     retryCount,
-  }), [status, lastEvent, events, error, close, reconnect, retryCount]);
+  }), [status, lastEvent, events, error, connect, close, reconnect, retryCount]);
 }
 

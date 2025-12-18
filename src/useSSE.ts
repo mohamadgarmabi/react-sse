@@ -14,7 +14,7 @@ const MAX_EVENTS = 100;
  * @example
  * ```tsx
  * const { status, lastEvent, events, error } = useSSE('/api/events', {
- *   token: 'your-auth-token',
+ *   headers: { 'Authorization': 'Bearer your-auth-token' },
  *   maxRetries: 3,
  *   maxRetryDelay: 10000
  * });
@@ -25,7 +25,8 @@ export function useSSE<T = any, K extends string = string>(
   options: SSEOptions = {}
 ): SSEReturn<T, K> {
   const {
-    token,
+    connectionMode = 'auto',
+    autoConnectDelay = 0,
     maxRetryDelay = 30000,
     initialRetryDelay = 1000,
     maxRetries = 5,
@@ -39,9 +40,11 @@ export function useSSE<T = any, K extends string = string>(
   const [events, setEvents] = useState<SSEEvent<T, K>[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [shouldConnect, setShouldConnect] = useState(connectionMode === 'auto');
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttemptRef = useRef(0);
   const shouldReconnectRef = useRef(autoReconnect);
   const urlRef = useRef(url);
@@ -73,6 +76,10 @@ export function useSSE<T = any, K extends string = string>(
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
+    if (autoConnectTimeoutRef.current) {
+      clearTimeout(autoConnectTimeoutRef.current);
+      autoConnectTimeoutRef.current = null;
+    }
   }, []);
 
   // Reconnect function
@@ -89,12 +96,56 @@ export function useSSE<T = any, K extends string = string>(
     }
   }, [cleanup]);
 
+  // Connect function (for manual mode)
+  const connect = useCallback(() => {
+    setShouldConnect(true);
+    if (urlRef.current) {
+      setStatus('connecting');
+    }
+  }, []);
+
   // Close connection
   const close = useCallback(() => {
     shouldReconnectRef.current = false;
+    setShouldConnect(false);
     cleanup();
     setStatus('closed');
   }, [cleanup]);
+
+  // Handle auto-connect delay
+  useEffect(() => {
+    if (!url) {
+      return;
+    }
+
+    // In manual mode, don't auto-connect
+    if (connectionMode === 'manual') {
+      return;
+    }
+
+    // Auto-connect with delay if specified
+    if (autoConnectDelay > 0) {
+      autoConnectTimeoutRef.current = setTimeout(() => {
+        if (urlRef.current) {
+          setShouldConnect(true);
+          setStatus('connecting');
+        }
+      }, autoConnectDelay);
+    } else {
+      // No delay, connect immediately
+      setShouldConnect(true);
+      if (urlRef.current) {
+        setStatus('connecting');
+      }
+    }
+
+    return () => {
+      if (autoConnectTimeoutRef.current) {
+        clearTimeout(autoConnectTimeoutRef.current);
+        autoConnectTimeoutRef.current = null;
+      }
+    };
+  }, [url, connectionMode, autoConnectDelay]);
 
   // Connect to SSE endpoint
   useEffect(() => {
@@ -103,9 +154,14 @@ export function useSSE<T = any, K extends string = string>(
       return;
     }
 
-    // If we have a token, we need to use fetch API with custom headers
+    // Check if we should connect
+    if (!shouldConnect) {
+      return;
+    }
+
+    // If we have custom headers, we need to use fetch API with custom headers
     // since EventSource doesn't support custom headers
-    if (token || Object.keys(headers).length > 0) {
+    if (Object.keys(headers).length > 0) {
       // For authenticated requests, we'll use fetch with ReadableStream
       // This is a more complex implementation but necessary for custom headers
       let abortController: AbortController | null = null;
@@ -124,10 +180,6 @@ export function useSSE<T = any, K extends string = string>(
             'Cache-Control': 'no-cache',
             ...headers,
           };
-
-          if (token) {
-            requestHeaders['Authorization'] = `Bearer ${token}`;
-          }
 
           const response = await fetch(url, {
             method: 'GET',
@@ -379,7 +431,7 @@ export function useSSE<T = any, K extends string = string>(
         cleanup();
       };
     }
-  }, [url, token, maxRetries, calculateRetryDelay, cleanup, headers]);
+  }, [url, shouldConnect, maxRetries, calculateRetryDelay, cleanup, headers]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -395,9 +447,10 @@ export function useSSE<T = any, K extends string = string>(
     lastEvent,
     events,
     error,
+    connect,
     close,
     reconnect,
     retryCount,
-  }), [status, lastEvent, events, error, close, reconnect, retryCount]);
+  }), [status, lastEvent, events, error, connect, close, reconnect, retryCount]);
 }
 

@@ -34,7 +34,9 @@ function AuthenticatedExample() {
   const { status, lastEvent, events, error, retryCount } = useSSE<Notification>(
     '/api/notifications',
     {
-      token,
+      headers: {
+        'Authorization': 'Bearer ' + token,
+      },
       maxRetries: 5,
       maxRetryDelay: 30000,
       initialRetryDelay: 1000,
@@ -71,7 +73,9 @@ function AuthenticatedExample() {
 // Example 3: Manual Connection Control
 function ControlledExample() {
   const { status, close, reconnect } = useSSE('/api/events', {
-    token: 'your-token',
+    headers: {
+      'Authorization': 'Bearer your-token',
+    },
     autoReconnect: false,
   });
 
@@ -87,7 +91,9 @@ function ControlledExample() {
 // Example 4: With Custom Retry Logic
 function CustomRetryExample() {
   const { status, retryCount } = useSSE('/api/events', {
-    token: 'your-token',
+    headers: {
+      'Authorization': 'Bearer your-token',
+    },
     maxRetries: 10,
     maxRetryDelay: 60000,
     retryDelayFn: (attempt) => {
@@ -109,7 +115,9 @@ function SharedWorkerExample() {
   const { status, lastEvent, events, error } = useSSEWithSharedWorker(
     '/api/events',
     {
-      token: localStorage.getItem('token') || undefined,
+      headers: {
+        'Authorization': 'Bearer ' + (localStorage.getItem('token') || undefined),
+      },
       maxRetries: 5,
       maxRetryDelay: 30000,
     },
@@ -143,7 +151,9 @@ function StockTrackerTab1() {
   const { events } = useSSEWithSharedWorker<StockPrice>(
     '/api/stock-prices',
     {
-      token: 'your-token',
+      headers: {
+        'Authorization': 'Bearer your-token',
+      },
     },
     '/shared-worker.js'
   );
@@ -167,7 +177,9 @@ function StockTrackerTab2() {
   const { events } = useSSEWithSharedWorker<StockPrice>(
     '/api/stock-prices',
     {
-      token: 'your-token',
+      headers: {
+        'Authorization': 'Bearer your-token',
+      },
     },
     '/shared-worker.js'
   );
