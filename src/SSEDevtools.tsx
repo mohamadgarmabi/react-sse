@@ -311,13 +311,16 @@ export function SSEDevtools<T = any>({
                   borderRadius: "50%",
                   background: statusColor,
                   boxShadow: `0 0 8px ${statusColor}`,
-                  animation: status === "connected" ? "pulse 2s infinite" : "none",
+                  animation:
+                    status === "connected" ? "pulse 2s infinite" : "none",
                 }}
               />
               <strong style={{ fontSize: 16, fontWeight: 700 }}>{title}</strong>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={badgeStyle(statusColor)}>{status.toUpperCase()}</span>
+              <span style={badgeStyle(statusColor)}>
+                {status.toUpperCase()}
+              </span>
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
@@ -371,8 +374,12 @@ export function SSEDevtools<T = any>({
           {/* Event Loop Lag */}
           <div style={rowStyle}>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Event Loop Lag</div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>CPU pressure indicator</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                Event Loop Lag
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>
+                CPU pressure indicator
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: lagColor }}>
@@ -394,13 +401,17 @@ export function SSEDevtools<T = any>({
             <>
               <div style={{ ...rowStyle, marginTop: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Memory Usage</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    Memory Usage
+                  </div>
                   <div style={{ fontSize: 11, color: "#64748b" }}>
                     {memory.usedMB} / {memory.totalMB} MB
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#667eea" }}>
+                  <div
+                    style={{ fontSize: 20, fontWeight: 700, color: "#667eea" }}
+                  >
                     {Math.round(memoryPercentage)}%
                   </div>
                   <div style={{ fontSize: 10, color: "#64748b" }}>
@@ -409,9 +420,7 @@ export function SSEDevtools<T = any>({
                 </div>
               </div>
               <div style={progressBarStyle}>
-                <div
-                  style={progressBarFill(memoryPercentage, "#667eea")}
-                />
+                <div style={progressBarFill(memoryPercentage, "#667eea")} />
               </div>
             </>
           )}
@@ -430,6 +439,16 @@ export function SSEDevtools<T = any>({
             <strong style={{ fontSize: 12, color: "#64748b" }}>
               {lastEvent
                 ? new Date(lastEvent.timestamp).toLocaleTimeString()
+                : "—"}
+            </strong>
+          </div>
+
+          {/* Last Event Type */}
+          <div style={rowStyle}>
+            <span style={{ fontWeight: 600 }}>Last Event Type</span>
+            <strong style={{ fontSize: 12, color: "#64748b" }}>
+              {lastEvent
+                ? lastEvent.type
                 : "—"}
             </strong>
           </div>
@@ -472,7 +491,8 @@ export function SSEDevtools<T = any>({
                 style={{
                   margin: 0,
                   padding: 12,
-                  background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                  background:
+                    "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
                   color: "#e2e8f0",
                   borderRadius: 12,
                   maxHeight: 200,
