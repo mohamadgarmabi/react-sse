@@ -181,6 +181,7 @@ export function SSEDevtools<T = any>({
   const [isHovering, setIsHovering] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [localOptions, setLocalOptions] = useState<SSEOptions>(options || {});
+  const [uiError, setUIError] = useState<{ message: string; name?: string } | null>(null);
 
   // Update local options when props change
   useEffect(() => {
@@ -259,6 +260,15 @@ export function SSEDevtools<T = any>({
 
   const handleRetry = () => {
     connect();
+    setUIError(null);
+  };
+
+  // For showing a test error via the UI
+  const simulateError = () => {
+    setUIError({
+      message: "This is a simulated error (throw error button).",
+      name: "UIError"
+    });
   };
 
   const handleOptionsUpdate = (updatedOptions: SSEOptions) => {
@@ -272,7 +282,7 @@ export function SSEDevtools<T = any>({
 
   const positionStyles = getPositionStyles(position, isOpen);
 
-  // Action buttons (vertical group, improved style)
+  // Action buttons
   function ActionButtons() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", margin: "8px 0" }}>
@@ -324,7 +334,31 @@ export function SSEDevtools<T = any>({
           </button>
           <span style={{ fontSize: 12, color: "#64748b" }}>New connection</span>
         </div>
-        {(error || status === "disconnected" || status === "closed") && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            style={{
+              padding: "5px 18px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid #fca5a5",
+              background: "#fff1f2",
+              color: "#bb1c1c",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.15s",
+              minWidth: 90,
+              textAlign: "center"
+            }}
+            onClick={simulateError}
+            onMouseEnter={e => { e.currentTarget.style.background = "#ffe4e6"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#fff1f2"; }}
+            title="Throw Error"
+          >
+            Throw Error
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>Simulate error</span>
+        </div>
+        {(error || uiError || status === "disconnected" || status === "closed") && (
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button
               style={{
@@ -343,11 +377,13 @@ export function SSEDevtools<T = any>({
               onClick={handleRetry}
               onMouseEnter={e => { e.currentTarget.style.background = "#fef3c7"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#fef9c3"; }}
-              title="Connect / Retry"
+              title="Retry/Connect"
             >
-              {error ? "Retry" : "Connect"}
+              Retry Connect
             </button>
-            <span style={{ fontSize: 12, color: "#64748b" }}>{error ? "Try again" : "Start connection"}</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>
+              {error || uiError ? "Try again" : "Start connection"}
+            </span>
           </div>
         )}
       </div>
@@ -542,7 +578,7 @@ export function SSEDevtools<T = any>({
           )}
 
           {/* Error Display */}
-          {error && (
+          {(error || uiError) && (
             <div
               style={{
                 marginTop: 12,
@@ -556,12 +592,14 @@ export function SSEDevtools<T = any>({
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ Error</div>
-              <div style={{ marginBottom: 8 }}>{error.message}</div>
-              {error.name && (
+              <div style={{ marginBottom: 8 }}>
+                {(error && error.message) || (uiError && uiError.message)}
+              </div>
+              {(error && error.name) || (uiError && uiError.name) ? (
                 <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 8 }}>
-                  Type: {error.name}
+                  Type: {(error && error.name) || (uiError && uiError.name)}
                 </div>
-              )}
+              ) : null}
               <button
                 style={{
                   marginTop: 8,
