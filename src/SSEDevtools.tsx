@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import type { SSEReturn } from "./types";
+import type { SSEReturn, SSEOptions, ConnectionMode } from "./types";
 
 type MemorySample = {
   usedMB: number;
@@ -15,35 +15,15 @@ type MemorySample = {
 type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 type Props<T = any> = {
-  /**
-   * The object returned by useSSE / useSSEWithSharedWorker
-   */
   state: SSEReturn<T>;
-  /**
-   * Panel title
-   * @default "SSE Devtools"
-   */
   title?: string;
-  /**
-   * Memory sampling interval (ms)
-   * @default 2000
-   */
   sampleInterval?: number;
-  /**
-   * Show the last event payload (stringified)
-   * @default true
-   */
   showLastEvent?: boolean;
-  /**
-   * Position of the devtools panel
-   * @default "bottom-right"
-   */
   position?: Position;
-  /**
-   * Whether the devtools are visible/enabled
-   * @default true
-   */
   visible?: boolean;
+  connectionMode?: ConnectionMode;
+  options?: SSEOptions;
+  onOptionsChange?: (options: SSEOptions) => void;
 };
 
 const getPositionStyles = (position: Position, isOpen: boolean): React.CSSProperties => {
@@ -180,18 +160,38 @@ export function SSEDevtools<T = any>({
   showLastEvent = true,
   position = "bottom-right",
   visible = true,
+  connectionMode,
+  options,
+  onOptionsChange,
 }: Props<T>) {
-  const { status, events, lastEvent, retryCount, error } = state;
+  const {
+    status,
+    events,
+    lastEvent,
+    retryCount,
+    error,
+    close,
+    reconnect,
+    connect,
+  } = state;
 
   const [isOpen, setIsOpen] = useState(false);
   const [memory, setMemory] = useState<MemorySample | null>(null);
   const [eventLoopLag, setEventLoopLag] = useState<number>(0);
   const [isHovering, setIsHovering] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+  const [localOptions, setLocalOptions] = useState<SSEOptions>(options || {});
+
+  // Update local options when props change
+  useEffect(() => {
+    if (options) {
+      setLocalOptions(options);
+    }
+  }, [options]);
 
   // Sample memory + event-loop lag (approx CPU pressure indicator)
   useEffect(() => {
     const updateMemory = () => {
-      // Chrome-only memory API
       const perfMem = (performance as any).memory;
       if (perfMem) {
         const { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit } = perfMem;
@@ -211,7 +211,6 @@ export function SSEDevtools<T = any>({
     const lagId = setInterval(() => {
       const now = performance.now();
       const delta = now - last;
-      // Expected 1000ms -> lag = overrun
       setEventLoopLag(Math.max(0, Math.round(delta - 1000)));
       last = now;
     }, 1000);
@@ -234,16 +233,16 @@ export function SSEDevtools<T = any>({
   const statusColor = useMemo(() => {
     switch (status) {
       case "connected":
-        return "#86efac"; // green-300
+        return "#86efac";
       case "connecting":
-        return "#fde047"; // yellow-300
+        return "#fde047";
       case "error":
-        return "#fca5a5"; // red-300
+        return "#fca5a5";
       case "disconnected":
-        return "#cbd5e1"; // slate-300
+        return "#cbd5e1";
       case "closed":
       default:
-        return "#94a3b8"; // slate-400
+        return "#94a3b8";
     }
   }, [status]);
 
@@ -258,9 +257,102 @@ export function SSEDevtools<T = any>({
     return "#fca5a5";
   }, [eventLoopLag]);
 
+  const handleRetry = () => {
+    connect();
+  };
+
+  const handleOptionsUpdate = (updatedOptions: SSEOptions) => {
+    setLocalOptions(updatedOptions);
+    if (onOptionsChange) {
+      onOptionsChange(updatedOptions);
+    }
+  };
+
   if (!visible) return null;
 
   const positionStyles = getPositionStyles(position, isOpen);
+
+  // Action buttons (vertical group, improved style)
+  function ActionButtons() {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", margin: "8px 0" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            style={{
+              padding: "5px 18px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              background: "#fee2e2",
+              color: "#b91c1c",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.15s",
+              minWidth: 90,
+              textAlign: "center"
+            }}
+            onClick={close}
+            onMouseEnter={e => { e.currentTarget.style.background = "#fecaca"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#fee2e2"; }}
+            title="Close connection"
+          >
+            Close
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>End connection</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            style={{
+              padding: "5px 18px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              background: "#f3e8ff",
+              color: "#7c3aed",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.15s",
+              minWidth: 90,
+              textAlign: "center"
+            }}
+            onClick={reconnect}
+            onMouseEnter={e => { e.currentTarget.style.background = "#e9d5ff"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#f3e8ff"; }}
+            title="Reconnect"
+          >
+            Reconnect
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>New connection</span>
+        </div>
+        {(error || status === "disconnected" || status === "closed") && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button
+              style={{
+                padding: "5px 18px",
+                fontSize: 12,
+                borderRadius: 8,
+                border: "1px solid #fde047",
+                background: "#fef9c3",
+                color: "#b45309",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "background 0.15s",
+                minWidth: 90,
+                textAlign: "center"
+              }}
+              onClick={handleRetry}
+              onMouseEnter={e => { e.currentTarget.style.background = "#fef3c7"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#fef9c3"; }}
+              title="Connect / Retry"
+            >
+              {error ? "Retry" : "Connect"}
+            </button>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{error ? "Try again" : "Start connection"}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={positionStyles}>
@@ -321,36 +413,22 @@ export function SSEDevtools<T = any>({
               <span style={badgeStyle(statusColor)}>
                 {status.toUpperCase()}
               </span>
-              <button
-                onClick={() => setIsOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 4,
-                  borderRadius: 6,
-                  color: "#64748b",
-                  fontSize: 18,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f1f5f9";
-                  e.currentTarget.style.color = "#0f172a";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#64748b";
-                }}
-                title="Close"
-                aria-label="Close"
-              >
-                ✕
-              </button>
+              {/* Action buttons: below header */}
             </div>
           </div>
+
+          {/* Buttons: column under header */}
+          <ActionButtons />
+
+          {/* Connection Mode */}
+          {connectionMode && (
+            <div style={rowStyle}>
+              <span style={{ fontWeight: 600 }}>Connection Mode</span>
+              <span style={badgeStyle(connectionMode === "auto" ? "#dbeafe" : "#fef3c7")}>
+                {connectionMode.toUpperCase()}
+              </span>
+            </div>
+          )}
 
           {/* Stats Grid */}
           <div
@@ -453,6 +531,16 @@ export function SSEDevtools<T = any>({
             </strong>
           </div>
 
+          {/* Last Event ID */}
+          {lastEvent?.id && (
+            <div style={rowStyle}>
+              <span style={{ fontWeight: 600 }}>Last Event ID</span>
+              <strong style={{ fontSize: 12, color: "#64748b" }}>
+                {lastEvent.id}
+              </strong>
+            </div>
+          )}
+
           {/* Error Display */}
           {error && (
             <div
@@ -468,7 +556,168 @@ export function SSEDevtools<T = any>({
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ Error</div>
-              <div>{error.message}</div>
+              <div style={{ marginBottom: 8 }}>{error.message}</div>
+              {error.name && (
+                <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 8 }}>
+                  Type: {error.name}
+                </div>
+              )}
+              <button
+                style={{
+                  marginTop: 8,
+                  padding: "6px 16px",
+                  fontSize: 12,
+                  borderRadius: 8,
+                  border: "1px solid #fde047",
+                  background: "#fef9c3",
+                  color: "#b45309",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                  width: "100%",
+                }}
+                onClick={handleRetry}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#fef3c7";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#fef9c3";
+                }}
+                title="Retry connection"
+              >
+                🔄 Retry Connection
+              </button>
+            </div>
+          )}
+
+          {/* Configuration Panel */}
+          {options && (
+            <div style={{ marginTop: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    color: "#64748b",
+                  }}
+                >
+                  Configuration
+                </div>
+                <button
+                  onClick={() => setShowConfig(!showConfig)}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    borderRadius: 6,
+                    border: "1px solid #e2e8f0",
+                    background: showConfig ? "#f1f5f9" : "transparent",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {showConfig ? "▼" : "▶"}
+                </button>
+              </div>
+              {showConfig && (
+                <div
+                  style={{
+                    padding: 12,
+                    background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                    borderRadius: 12,
+                    border: "1px solid #e2e8f0",
+                    fontSize: 11,
+                  }}
+                >
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                      Connection Mode
+                    </div>
+                    <div style={{ color: "#64748b" }}>
+                      {localOptions.connectionMode || "auto"}
+                    </div>
+                  </div>
+                  {localOptions.autoConnectDelay !== undefined && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Auto Connect Delay
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {localOptions.autoConnectDelay}ms
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.maxRetries !== undefined && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Max Retries
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {localOptions.maxRetries}
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.maxRetryDelay !== undefined && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Max Retry Delay
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {localOptions.maxRetryDelay}ms
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.initialRetryDelay !== undefined && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Initial Retry Delay
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {localOptions.initialRetryDelay}ms
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.autoReconnect !== undefined && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Auto Reconnect
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {localOptions.autoReconnect ? "Enabled" : "Disabled"}
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.headers && Object.keys(localOptions.headers).length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Custom Headers
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {Object.keys(localOptions.headers).length} header(s)
+                      </div>
+                    </div>
+                  )}
+                  {localOptions.retryDelayFn && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                        Retry Delay Function
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        Custom function provided
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
