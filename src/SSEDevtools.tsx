@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import type { SSEReturn, SSEOptions, ConnectionMode } from "./types";
 
 type MemorySample = {
@@ -173,6 +173,7 @@ export function SSEDevtools<T = any>({
     close,
     reconnect,
     connect,
+    // state may have other values but they are not important
   } = state;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -181,7 +182,26 @@ export function SSEDevtools<T = any>({
   const [isHovering, setIsHovering] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [localOptions, setLocalOptions] = useState<SSEOptions>(options || {});
-  const [uiError, setUIError] = useState<{ message: string; name?: string } | null>(null);
+  const [uiError, setUIError] = useState<Error | null>(null);
+
+  // Added: Keep track of permanent error mode
+  const [permanentRetryMode, setPermanentRetryMode] = useState(false);
+  const hasUserRetried = useRef(false);
+
+  // If an error occurs, enter permanent retry mode
+  useEffect(() => {
+    if (error || uiError) {
+      setPermanentRetryMode(true);
+    }
+  }, [error, uiError]);
+
+  // If successful connection or user retries, remove permanent retry mode
+  useEffect(() => {
+    if (!error && !uiError && status === "connected") {
+      setPermanentRetryMode(false);
+      hasUserRetried.current = false;
+    }
+  }, [error, uiError, status]);
 
   // Update local options when props change
   useEffect(() => {
@@ -258,17 +278,27 @@ export function SSEDevtools<T = any>({
     return "#fca5a5";
   }, [eventLoopLag]);
 
+  // Modified: Only allow connect on retry button if NOT in permanent retry mode, otherwise do nothing
   const handleRetry = () => {
-    connect();
-    setUIError(null);
+    // Only allow one user retry: after that do not connect anymore (user controlled retry once)
+    if (!permanentRetryMode) {
+      connect();
+      setUIError(null);
+      return;
+    }
+    if (!hasUserRetried.current) {
+      connect();
+      setUIError(null);
+      hasUserRetried.current = true;
+    }
+    // After first retry, further "Retry Connect" does nothing
   };
 
-  // For showing a test error via the UI
+  // Simulate an error for testing purposes
   const simulateError = () => {
-    setUIError({
-      message: "This is a simulated error (throw error button).",
-      name: "UIError"
-    });
+    const simulatedError = new Error("This is a simulated error (throw error button).");
+    simulatedError.name = "SimulatedError";
+    setUIError(simulatedError);
   };
 
   const handleOptionsUpdate = (updatedOptions: SSEOptions) => {
@@ -284,6 +314,8 @@ export function SSEDevtools<T = any>({
 
   // Action buttons
   function ActionButtons() {
+    // Disable all live connect/reconnect/throw error buttons in permanent retry mode after user retry
+    const buttonsDisabled = permanentRetryMode && hasUserRetried.current;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", margin: "8px 0" }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -299,12 +331,15 @@ export function SSEDevtools<T = any>({
               cursor: "pointer",
               transition: "background 0.15s",
               minWidth: 90,
-              textAlign: "center"
+              textAlign: "center",
+              opacity: buttonsDisabled ? 0.6 : 1,
+              pointerEvents: buttonsDisabled ? "none" : undefined,
             }}
             onClick={close}
             onMouseEnter={e => { e.currentTarget.style.background = "#fecaca"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#fee2e2"; }}
             title="Close connection"
+            disabled={buttonsDisabled}
           >
             Close
           </button>
@@ -323,12 +358,15 @@ export function SSEDevtools<T = any>({
               cursor: "pointer",
               transition: "background 0.15s",
               minWidth: 90,
-              textAlign: "center"
+              textAlign: "center",
+              opacity: buttonsDisabled ? 0.6 : 1,
+              pointerEvents: buttonsDisabled ? "none" : undefined,
             }}
             onClick={reconnect}
             onMouseEnter={e => { e.currentTarget.style.background = "#e9d5ff"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#f3e8ff"; }}
             title="Reconnect"
+            disabled={buttonsDisabled}
           >
             Reconnect
           </button>
@@ -347,12 +385,15 @@ export function SSEDevtools<T = any>({
               cursor: "pointer",
               transition: "background 0.15s",
               minWidth: 90,
-              textAlign: "center"
+              textAlign: "center",
+              opacity: buttonsDisabled ? 0.6 : 1,
+              pointerEvents: buttonsDisabled ? "none" : undefined,
             }}
             onClick={simulateError}
             onMouseEnter={e => { e.currentTarget.style.background = "#ffe4e6"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#fff1f2"; }}
             title="Throw Error"
+            disabled={buttonsDisabled}
           >
             Throw Error
           </button>
@@ -372,18 +413,26 @@ export function SSEDevtools<T = any>({
                 cursor: "pointer",
                 transition: "background 0.15s",
                 minWidth: 90,
-                textAlign: "center"
+                textAlign: "center",
+                opacity: buttonsDisabled ? 0.6 : 1,
+                pointerEvents: buttonsDisabled ? "none" : undefined,
               }}
               onClick={handleRetry}
               onMouseEnter={e => { e.currentTarget.style.background = "#fef3c7"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#fef9c3"; }}
               title="Retry/Connect"
+              disabled={buttonsDisabled}
             >
               Retry Connect
             </button>
             <span style={{ fontSize: 12, color: "#64748b" }}>
-              {error || uiError ? "Try again" : "Start connection"}
+              {error || uiError ? (buttonsDisabled ? "Retry limit reached" : "Try again") : "Start connection"}
             </span>
+          </div>
+        )}
+        {buttonsDisabled && (
+          <div style={{ color: "#991b1b", fontSize: 12, paddingLeft: 8 }}>
+            Retry limit reached (connection disabled due to error)
           </div>
         )}
       </div>
@@ -613,6 +662,8 @@ export function SSEDevtools<T = any>({
                   cursor: "pointer",
                   transition: "background 0.15s",
                   width: "100%",
+                  opacity: permanentRetryMode && hasUserRetried.current ? 0.6 : 1,
+                  pointerEvents: permanentRetryMode && hasUserRetried.current ? "none" : undefined,
                 }}
                 onClick={handleRetry}
                 onMouseEnter={(e) => {
@@ -622,9 +673,15 @@ export function SSEDevtools<T = any>({
                   e.currentTarget.style.background = "#fef9c3";
                 }}
                 title="Retry connection"
+                disabled={permanentRetryMode && hasUserRetried.current}
               >
                 🔄 Retry Connection
               </button>
+              {permanentRetryMode && hasUserRetried.current && (
+                <div style={{ color: "#991b1b", fontSize: 12, marginTop: 8 }}>
+                  Maximum retry attempts exceeded. Reconnection is no longer possible.
+                </div>
+              )}
             </div>
           )}
 
