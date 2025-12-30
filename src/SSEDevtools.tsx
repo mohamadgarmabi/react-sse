@@ -181,12 +181,18 @@ export function SSEDevtools<T = any>({
   const [eventLoopLag, setEventLoopLag] = useState<number>(0);
   const [isHovering, setIsHovering] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [configTab, setConfigTab] = useState<"default" | "custom">("default");
   const [localOptions, setLocalOptions] = useState<SSEOptions>(options || {});
+  const [editingOptions, setEditingOptions] = useState<SSEOptions>(options || {});
+  const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>(
+    options?.headers ? Object.entries(options.headers).map(([key, value]) => ({ key, value })) : []
+  );
   const [uiError, setUIError] = useState<Error | null>(null);
 
   // Added: Keep track of permanent error mode
   const [permanentRetryMode, setPermanentRetryMode] = useState(false);
   const hasUserRetried = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // If an error occurs, enter permanent retry mode
   useEffect(() => {
@@ -207,8 +213,30 @@ export function SSEDevtools<T = any>({
   useEffect(() => {
     if (options) {
       setLocalOptions(options);
+      setEditingOptions(options);
+      if (options.headers) {
+        setCustomHeaders(Object.entries(options.headers).map(([key, value]) => ({ key, value })));
+      } else {
+        setCustomHeaders([]);
+      }
     }
   }, [options]);
+
+  // Handle click outside to close panel
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
 
   // Sample memory + event-loop lag (approx CPU pressure indicator)
   useEffect(() => {
@@ -306,6 +334,41 @@ export function SSEDevtools<T = any>({
     if (onOptionsChange) {
       onOptionsChange(updatedOptions);
     }
+  };
+
+  // Handle saving custom configuration
+  const handleSaveCustomConfig = () => {
+    const headersObj: Record<string, string> = {};
+    customHeaders.forEach(({ key, value }) => {
+      if (key.trim()) {
+        headersObj[key.trim()] = value.trim();
+      }
+    });
+
+    const updatedOptions: SSEOptions = {
+      ...editingOptions,
+      headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+    };
+
+    handleOptionsUpdate(updatedOptions);
+    setLocalOptions(updatedOptions);
+  };
+
+  // Handle adding a new header row
+  const handleAddHeader = () => {
+    setCustomHeaders([...customHeaders, { key: "", value: "" }]);
+  };
+
+  // Handle removing a header row
+  const handleRemoveHeader = (index: number) => {
+    setCustomHeaders(customHeaders.filter((_, i) => i !== index));
+  };
+
+  // Handle updating a header row
+  const handleUpdateHeader = (index: number, field: "key" | "value", newValue: string) => {
+    const updated = [...customHeaders];
+    updated[index] = { ...updated[index], [field]: newValue };
+    setCustomHeaders(updated);
   };
 
   if (!visible) return null;
@@ -468,7 +531,7 @@ export function SSEDevtools<T = any>({
           </svg>
         </button>
       ) : (
-        <div style={panelStyle}>
+        <div ref={panelRef} style={panelStyle}>
           {/* Header */}
           <div
             style={{
@@ -733,82 +796,406 @@ export function SSEDevtools<T = any>({
                     fontSize: 11,
                   }}
                 >
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                      Connection Mode
-                    </div>
-                    <div style={{ color: "#64748b" }}>
-                      {localOptions.connectionMode || "auto"}
-                    </div>
+                  {/* Tab Buttons */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12, borderBottom: "1px solid #e2e8f0" }}>
+                    <button
+                      onClick={() => setConfigTab("default")}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        border: "none",
+                        background: configTab === "default" ? "#667eea" : "transparent",
+                        color: configTab === "default" ? "white" : "#64748b",
+                        cursor: "pointer",
+                        borderRadius: "6px 6px 0 0",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      Default
+                    </button>
+                    <button
+                      onClick={() => setConfigTab("custom")}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        border: "none",
+                        background: configTab === "custom" ? "#667eea" : "transparent",
+                        color: configTab === "custom" ? "white" : "#64748b",
+                        cursor: "pointer",
+                        borderRadius: "6px 6px 0 0",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      Custom
+                    </button>
                   </div>
-                  {localOptions.autoConnectDelay !== undefined && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Auto Connect Delay
+
+                  {/* Default Tab - Read-only view */}
+                  {configTab === "default" && (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                          Connection Mode
+                        </div>
+                        <div style={{ color: "#64748b" }}>
+                          {localOptions.connectionMode || "auto"}
+                        </div>
                       </div>
-                      <div style={{ color: "#64748b" }}>
-                        {localOptions.autoConnectDelay}ms
-                      </div>
+                      {localOptions.autoConnectDelay !== undefined && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Auto Connect Delay
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {localOptions.autoConnectDelay}ms
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.maxRetries !== undefined && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Max Retries
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {localOptions.maxRetries}
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.maxRetryDelay !== undefined && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Max Retry Delay
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {localOptions.maxRetryDelay}ms
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.initialRetryDelay !== undefined && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Initial Retry Delay
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {localOptions.initialRetryDelay}ms
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.autoReconnect !== undefined && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Auto Reconnect
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {localOptions.autoReconnect ? "Enabled" : "Disabled"}
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.headers && Object.keys(localOptions.headers).length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Custom Headers
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            {Object.keys(localOptions.headers).length} header(s)
+                          </div>
+                        </div>
+                      )}
+                      {localOptions.retryDelayFn && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                            Retry Delay Function
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            Custom function provided
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {localOptions.maxRetries !== undefined && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Max Retries
+
+                  {/* Custom Tab - Editable view */}
+                  {configTab === "custom" && (
+                    <div>
+                      {/* Connection Mode */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                          Connection Mode
+                        </label>
+                        <select
+                          value={editingOptions.connectionMode || "auto"}
+                          onChange={(e) => {
+                            setEditingOptions({
+                              ...editingOptions,
+                              connectionMode: e.target.value as ConnectionMode,
+                            });
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "white",
+                            color: "#0f172a",
+                          }}
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="manual">Manual</option>
+                        </select>
                       </div>
-                      <div style={{ color: "#64748b" }}>
-                        {localOptions.maxRetries}
+
+                      {/* Auto Connect Delay */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                          Auto Connect Delay (ms)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingOptions.autoConnectDelay ?? ""}
+                          onChange={(e) => {
+                            setEditingOptions({
+                              ...editingOptions,
+                              autoConnectDelay: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                            });
+                          }}
+                          placeholder="0"
+                          min="0"
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "white",
+                            color: "#0f172a",
+                          }}
+                        />
                       </div>
-                    </div>
-                  )}
-                  {localOptions.maxRetryDelay !== undefined && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Max Retry Delay
+
+                      {/* Max Retries */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                          Max Retries
+                        </label>
+                        <input
+                          type="number"
+                          value={editingOptions.maxRetries ?? ""}
+                          onChange={(e) => {
+                            setEditingOptions({
+                              ...editingOptions,
+                              maxRetries: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                            });
+                          }}
+                          placeholder="5"
+                          min="0"
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "white",
+                            color: "#0f172a",
+                          }}
+                        />
                       </div>
-                      <div style={{ color: "#64748b" }}>
-                        {localOptions.maxRetryDelay}ms
+
+                      {/* Max Retry Delay */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                          Max Retry Delay (ms)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingOptions.maxRetryDelay ?? ""}
+                          onChange={(e) => {
+                            setEditingOptions({
+                              ...editingOptions,
+                              maxRetryDelay: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                            });
+                          }}
+                          placeholder="30000"
+                          min="0"
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "white",
+                            color: "#0f172a",
+                          }}
+                        />
                       </div>
-                    </div>
-                  )}
-                  {localOptions.initialRetryDelay !== undefined && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Initial Retry Delay
+
+                      {/* Initial Retry Delay */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "block", fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                          Initial Retry Delay (ms)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingOptions.initialRetryDelay ?? ""}
+                          onChange={(e) => {
+                            setEditingOptions({
+                              ...editingOptions,
+                              initialRetryDelay: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                            });
+                          }}
+                          placeholder="1000"
+                          min="0"
+                          style={{
+                            width: "100%",
+                            padding: "6px 8px",
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            background: "white",
+                            color: "#0f172a",
+                          }}
+                        />
                       </div>
-                      <div style={{ color: "#64748b" }}>
-                        {localOptions.initialRetryDelay}ms
+
+                      {/* Auto Reconnect */}
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 11 }}>
+                          <input
+                            type="checkbox"
+                            checked={editingOptions.autoReconnect ?? true}
+                            onChange={(e) => {
+                              setEditingOptions({
+                                ...editingOptions,
+                                autoReconnect: e.target.checked,
+                              });
+                            }}
+                            style={{
+                              width: 16,
+                              height: 16,
+                              cursor: "pointer",
+                            }}
+                          />
+                          Auto Reconnect
+                        </label>
                       </div>
-                    </div>
-                  )}
-                  {localOptions.autoReconnect !== undefined && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Auto Reconnect
+
+                      {/* Custom Headers */}
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <label style={{ fontWeight: 600, fontSize: 11 }}>
+                            Custom Headers
+                          </label>
+                          <button
+                            onClick={handleAddHeader}
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: 10,
+                              borderRadius: 4,
+                              border: "1px solid #e2e8f0",
+                              background: "#f1f5f9",
+                              color: "#64748b",
+                              cursor: "pointer",
+                              transition: "all 0.15s",
+                            }}
+                          >
+                            + Add Header
+                          </button>
+                        </div>
+                        {customHeaders.map((header, index) => (
+                          <div key={index} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                            <input
+                              type="text"
+                              value={header.key}
+                              onChange={(e) => handleUpdateHeader(index, "key", e.target.value)}
+                              placeholder="Header name"
+                              style={{
+                                flex: 1,
+                                padding: "6px 8px",
+                                fontSize: 11,
+                                borderRadius: 6,
+                                border: "1px solid #e2e8f0",
+                                background: "white",
+                                color: "#0f172a",
+                              }}
+                            />
+                            <input
+                              type="text"
+                              value={header.value}
+                              onChange={(e) => handleUpdateHeader(index, "value", e.target.value)}
+                              placeholder="Header value"
+                              style={{
+                                flex: 1,
+                                padding: "6px 8px",
+                                fontSize: 11,
+                                borderRadius: 6,
+                                border: "1px solid #e2e8f0",
+                                background: "white",
+                                color: "#0f172a",
+                              }}
+                            />
+                            <button
+                              onClick={() => handleRemoveHeader(index)}
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: 11,
+                                borderRadius: 6,
+                                border: "1px solid #fee2e2",
+                                background: "#fee2e2",
+                                color: "#b91c1c",
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        {customHeaders.length === 0 && (
+                          <div style={{ color: "#94a3b8", fontSize: 10, fontStyle: "italic" }}>
+                            No custom headers. Click "Add Header" to add one.
+                          </div>
+                        )}
                       </div>
-                      <div style={{ color: "#64748b" }}>
-                        {localOptions.autoReconnect ? "Enabled" : "Disabled"}
-                      </div>
-                    </div>
-                  )}
-                  {localOptions.headers && Object.keys(localOptions.headers).length > 0 && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Custom Headers
-                      </div>
-                      <div style={{ color: "#64748b" }}>
-                        {Object.keys(localOptions.headers).length} header(s)
-                      </div>
-                    </div>
-                  )}
-                  {localOptions.retryDelayFn && (
-                    <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                        Retry Delay Function
-                      </div>
-                      <div style={{ color: "#64748b" }}>
-                        Custom function provided
-                      </div>
+
+                      {/* Retry Delay Function */}
+                      {editingOptions.retryDelayFn && (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 11 }}>
+                            Retry Delay Function
+                          </div>
+                          <div style={{ color: "#64748b", fontSize: 10 }}>
+                            Custom function provided (cannot be edited here)
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Save Button */}
+                      <button
+                        onClick={handleSaveCustomConfig}
+                        style={{
+                          width: "100%",
+                          padding: "8px 16px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          borderRadius: 8,
+                          border: "1px solid #667eea",
+                          background: "#667eea",
+                          color: "white",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                          marginTop: 8,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#5568d3";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "#667eea";
+                        }}
+                      >
+                        Save Configuration
+                      </button>
                     </div>
                   )}
                 </div>
@@ -861,6 +1248,34 @@ export function SSEDevtools<T = any>({
               }
             `}
           </style>
+
+          {/* Close Button at Bottom */}
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{
+                width: "100%",
+                padding: "8px 16px",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "1px solid #e2e8f0",
+                background: "#f1f5f9",
+                color: "#64748b",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#e2e8f0";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#f1f5f9";
+              }}
+              title="Close Devtools"
+            >
+              Close Devtools
+            </button>
+          </div>
         </div>
       )}
     </div>
