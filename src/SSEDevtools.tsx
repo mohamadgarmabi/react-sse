@@ -24,6 +24,10 @@ type Props<T = any> = {
   connectionMode?: ConnectionMode;
   options?: SSEOptions;
   onOptionsChange?: (options: SSEOptions) => void;
+  initialConfigTab?: "default" | "custom";
+  onConfigTabChange?: (tab: "default" | "custom") => void;
+  initialCustomHeaders?: Array<{ key: string; value: string }>;
+  onCustomHeadersChange?: (headers: Array<{ key: string; value: string }>) => void;
 };
 
 const getPositionStyles = (position: Position, isOpen: boolean): React.CSSProperties => {
@@ -163,6 +167,10 @@ export function SSEDevtools<T = any>({
   connectionMode,
   options,
   onOptionsChange,
+  initialConfigTab,
+  onConfigTabChange,
+  initialCustomHeaders,
+  onCustomHeadersChange,
 }: Props<T>) {
   const {
     status,
@@ -181,11 +189,15 @@ export function SSEDevtools<T = any>({
   const [eventLoopLag, setEventLoopLag] = useState<number>(0);
   const [isHovering, setIsHovering] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [configTab, setConfigTab] = useState<"default" | "custom">("default");
+  const [configTab, setConfigTab] = useState<"default" | "custom">(initialConfigTab || "default");
   const [localOptions, setLocalOptions] = useState<SSEOptions>(options || {});
   const [editingOptions, setEditingOptions] = useState<SSEOptions>(options || {});
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>(
-    options?.headers ? Object.entries(options.headers).map(([key, value]) => ({ key, value })) : []
+    initialCustomHeaders !== undefined
+      ? initialCustomHeaders
+      : options?.headers
+        ? Object.entries(options.headers).map(([key, value]) => ({ key, value }))
+        : []
   );
   const [uiError, setUIError] = useState<Error | null>(null);
 
@@ -214,29 +226,29 @@ export function SSEDevtools<T = any>({
     if (options) {
       setLocalOptions(options);
       setEditingOptions(options);
-      if (options.headers) {
-        setCustomHeaders(Object.entries(options.headers).map(([key, value]) => ({ key, value })));
-      } else {
-        setCustomHeaders([]);
+      if (initialCustomHeaders === undefined) {
+        if (options.headers) {
+          setCustomHeaders(Object.entries(options.headers).map(([key, value]) => ({ key, value })));
+        } else {
+          setCustomHeaders([]);
+        }
       }
     }
-  }, [options]);
+  }, [options, initialCustomHeaders]);
 
-  // Handle click outside to close panel
+  // Sync configTab with initialConfigTab prop
   useEffect(() => {
-    if (!isOpen) return;
+    if (initialConfigTab !== undefined && initialConfigTab !== configTab) {
+      setConfigTab(initialConfigTab);
+    }
+  }, [initialConfigTab, configTab]);
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
+  // Sync customHeaders with initialCustomHeaders prop
+  useEffect(() => {
+    if (initialCustomHeaders !== undefined) {
+      setCustomHeaders(initialCustomHeaders);
+    }
+  }, [initialCustomHeaders]);
 
   // Sample memory + event-loop lag (approx CPU pressure indicator)
   useEffect(() => {
@@ -354,14 +366,44 @@ export function SSEDevtools<T = any>({
     setLocalOptions(updatedOptions);
   };
 
+  // Helper function to update options with current custom headers
+  const updateOptionsWithHeaders = (headers: Array<{ key: string; value: string }>) => {
+    const headersObj: Record<string, string> = {};
+    headers.forEach(({ key, value }) => {
+      if (key.trim()) {
+        headersObj[key.trim()] = value.trim();
+      }
+    });
+
+    const updatedOptions: SSEOptions = {
+      ...editingOptions,
+      headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+    };
+
+    handleOptionsUpdate(updatedOptions);
+    setEditingOptions(updatedOptions);
+  };
+
   // Handle adding a new header row
   const handleAddHeader = () => {
-    setCustomHeaders([...customHeaders, { key: "", value: "" }]);
+    const newHeaders = [...customHeaders, { key: "", value: "" }];
+    setCustomHeaders(newHeaders);
+    if (onCustomHeadersChange) {
+      onCustomHeadersChange(newHeaders);
+    }
+    // Update options immediately with new headers
+    updateOptionsWithHeaders(newHeaders);
   };
 
   // Handle removing a header row
   const handleRemoveHeader = (index: number) => {
-    setCustomHeaders(customHeaders.filter((_, i) => i !== index));
+    const newHeaders = customHeaders.filter((_, i) => i !== index);
+    setCustomHeaders(newHeaders);
+    if (onCustomHeadersChange) {
+      onCustomHeadersChange(newHeaders);
+    }
+    // Update options immediately with new headers
+    updateOptionsWithHeaders(newHeaders);
   };
 
   // Handle updating a header row
@@ -369,6 +411,11 @@ export function SSEDevtools<T = any>({
     const updated = [...customHeaders];
     updated[index] = { ...updated[index], [field]: newValue };
     setCustomHeaders(updated);
+    if (onCustomHeadersChange) {
+      onCustomHeadersChange(updated);
+    }
+    // Update options immediately with new headers
+    updateOptionsWithHeaders(updated);
   };
 
   if (!visible) return null;
@@ -380,7 +427,7 @@ export function SSEDevtools<T = any>({
     // Disable all live connect/reconnect/throw error buttons in permanent retry mode after user retry
     const buttonsDisabled = permanentRetryMode && hasUserRetried.current;
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", margin: "8px 0" }}>
+      <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 8, width: "100%", margin: "8px 0" }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
             style={{
@@ -406,7 +453,6 @@ export function SSEDevtools<T = any>({
           >
             Close
           </button>
-          <span style={{ fontSize: 12, color: "#64748b" }}>End connection</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
@@ -433,7 +479,6 @@ export function SSEDevtools<T = any>({
           >
             Reconnect
           </button>
-          <span style={{ fontSize: 12, color: "#64748b" }}>New connection</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
@@ -460,7 +505,6 @@ export function SSEDevtools<T = any>({
           >
             Throw Error
           </button>
-          <span style={{ fontSize: 12, color: "#64748b" }}>Simulate error</span>
         </div>
         {(error || uiError || status === "disconnected" || status === "closed") && (
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -488,9 +532,6 @@ export function SSEDevtools<T = any>({
             >
               Retry Connect
             </button>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
-              {error || uiError ? (buttonsDisabled ? "Retry limit reached" : "Try again") : "Start connection"}
-            </span>
           </div>
         )}
         {buttonsDisabled && (
@@ -799,7 +840,12 @@ export function SSEDevtools<T = any>({
                   {/* Tab Buttons */}
                   <div style={{ display: "flex", gap: 8, marginBottom: 12, borderBottom: "1px solid #e2e8f0" }}>
                     <button
-                      onClick={() => setConfigTab("default")}
+                      onClick={() => {
+                        setConfigTab("default");
+                        if (onConfigTabChange) {
+                          onConfigTabChange("default");
+                        }
+                      }}
                       style={{
                         padding: "6px 12px",
                         fontSize: 11,
@@ -815,7 +861,12 @@ export function SSEDevtools<T = any>({
                       Default
                     </button>
                     <button
-                      onClick={() => setConfigTab("custom")}
+                      onClick={() => {
+                        setConfigTab("custom");
+                        if (onConfigTabChange) {
+                          onConfigTabChange("custom");
+                        }
+                      }}
                       style={{
                         padding: "6px 12px",
                         fontSize: 11,
