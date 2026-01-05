@@ -197,7 +197,9 @@ class SSESharedWorker {
 
       const requestHeaders: HeadersInit = {
         'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
         ...headers,
       };
 
@@ -205,9 +207,17 @@ class SSESharedWorker {
         method: 'GET',
         headers: requestHeaders,
         signal: this.fetchController.signal,
+        cache: 'no-store',
+        credentials: 'include',
       });
 
       if (!response.ok) {
+        // Handle 401 specifically - authentication error
+        if (response.status === 401) {
+          const error = new Error(`Authentication failed! status: ${response.status}`);
+          error.name = 'AuthenticationError';
+          throw error;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -301,6 +311,22 @@ class SSESharedWorker {
       }
 
       const error = err instanceof Error ? err : new Error('Unknown error');
+      
+      // For 401 errors, don't retry automatically - user needs to refresh auth
+      if (error.name === 'AuthenticationError') {
+        if (this.currentConnection) {
+          this.currentConnection.status = 'disconnected';
+          this.currentConnection.events = [];
+          this.currentConnection.lastEvent = null;
+        }
+        this.broadcast({ type: 'STATUS', payload: { status: 'disconnected' } });
+        this.broadcast({
+          type: 'ERROR',
+          payload: { error: { message: error.message, name: error.name } },
+        });
+        return;
+      }
+      
       this.handleError(error, options);
     }
   }
@@ -455,6 +481,9 @@ class SSESharedWorker {
     if (this.currentConnection) {
       this.currentConnection.retryCount = 0;
       this.currentConnection.error = null;
+      // Clear cached data before reconnecting
+      this.currentConnection.events = [];
+      this.currentConnection.lastEvent = null;
       this.disconnect();
       this.establishConnection(
         this.currentConnection.url,
@@ -481,7 +510,14 @@ class SSESharedWorker {
 
     if (this.currentConnection) {
       this.currentConnection.status = 'disconnected';
+      // Clear all cached data on disconnect
+      this.currentConnection.events = [];
+      this.currentConnection.lastEvent = null;
+      this.currentConnection.error = null;
+      this.currentConnection.retryCount = 0;
     }
+
+    this.retryAttempt = 0;
 
     this.broadcast({ type: 'DISCONNECTED' });
     this.broadcast({ type: 'STATUS', payload: { status: 'disconnected' } });

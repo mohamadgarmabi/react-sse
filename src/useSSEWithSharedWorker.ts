@@ -79,6 +79,9 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
   useEffect(() => {
     if (!url) {
       setStatus('disconnected');
+      // Clear cached data when URL is removed
+      setEvents([]);
+      setLastEvent(null);
       return;
     }
 
@@ -131,6 +134,11 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
 
           case 'DISCONNECTED':
             setStatus('disconnected');
+            // Clear all cached data on disconnect
+            setEvents([]);
+            setLastEvent(null);
+            setError(null);
+            setRetryCount(0);
             break;
         }
       };
@@ -203,6 +211,11 @@ export function useSSEWithSharedWorker<T = any, K extends string = string>(
       } as WorkerMessage);
     }
     setStatus('closed');
+    // Clear all cached data on close
+    setEvents([]);
+    setLastEvent(null);
+    setError(null);
+    setRetryCount(0);
   }, []);
 
   const reconnect = useCallback(() => {

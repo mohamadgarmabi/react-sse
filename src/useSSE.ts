@@ -110,6 +110,11 @@ export function useSSE<T = any, K extends string = string>(
     setShouldConnect(false);
     cleanup();
     setStatus('closed');
+    // Clear all cached data
+    setEvents([]);
+    setLastEvent(null);
+    setError(null);
+    setRetryCount(0);
   }, [cleanup]);
 
   // Handle auto-connect delay
@@ -151,6 +156,9 @@ export function useSSE<T = any, K extends string = string>(
   useEffect(() => {
     if (!url) {
       setStatus('disconnected');
+      // Clear cached data when URL is removed
+      setEvents([]);
+      setLastEvent(null);
       return;
     }
 
@@ -177,7 +185,9 @@ export function useSSE<T = any, K extends string = string>(
           
           const requestHeaders: HeadersInit = {
             'Accept': 'text/event-stream',
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
             ...headers,
           };
 
@@ -185,9 +195,17 @@ export function useSSE<T = any, K extends string = string>(
             method: 'GET',
             headers: requestHeaders,
             signal: abortController.signal,
+            cache: 'no-store',
+            credentials: 'include',
           });
 
           if (!response.ok) {
+            // Handle 401 specifically - authentication error
+            if (response.status === 401) {
+              const error = new Error(`Authentication failed! status: ${response.status}`);
+              error.name = 'AuthenticationError';
+              throw error;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
@@ -294,6 +312,14 @@ export function useSSE<T = any, K extends string = string>(
             setError(error);
             setStatus('error');
 
+            // For 401 errors, don't retry automatically - user needs to refresh auth
+            if (error.name === 'AuthenticationError') {
+              setStatus('disconnected');
+              setEvents([]);
+              setLastEvent(null);
+              return;
+            }
+
             // Retry logic
             if (shouldReconnectRef.current && retryAttemptRef.current < maxRetries) {
               retryAttemptRef.current += 1;
@@ -307,6 +333,9 @@ export function useSSE<T = any, K extends string = string>(
               }, delay);
             } else {
               setStatus('disconnected');
+              // Clear cached data on disconnect
+              setEvents([]);
+              setLastEvent(null);
             }
           }
         }
@@ -325,6 +354,9 @@ export function useSSE<T = any, K extends string = string>(
           });
         }
         cleanup();
+        // Clear cached data on cleanup
+        setEvents([]);
+        setLastEvent(null);
       };
     } else {
       // Use native EventSource for non-authenticated requests
@@ -398,6 +430,9 @@ export function useSSE<T = any, K extends string = string>(
           } else {
             setStatus('disconnected');
             eventSource.close();
+            // Clear cached data on disconnect
+            setEvents([]);
+            setLastEvent(null);
           }
         }
       };
