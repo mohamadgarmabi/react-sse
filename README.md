@@ -77,6 +77,24 @@ function AuthenticatedComponent() {
 }
 ```
 
+### CORS and "Failed to fetch"
+
+If you get **"Failed to fetch"** or CORS errors when connecting to a **cross-origin** SSE endpoint:
+
+- **Option 1**: Use `credentials: 'same-origin'` (default) or `credentials: 'omit'` so the browser does not send cookies; many CORS issues are caused by credential mode.
+- **Option 2**: If you need cookies, set `credentials: 'include'` and ensure the **server** sends:
+  - `Access-Control-Allow-Origin: <your-origin>` (no `*` when using credentials)
+  - `Access-Control-Allow-Credentials: true`
+- **Option 3**: Use a same-origin proxy so the browser only talks to your domain.
+
+```tsx
+// Example: avoid credentials for cross-origin to reduce CORS strictness
+useSSE('https://api.other-domain.com/events', {
+  credentials: 'omit',
+  headers: { Authorization: `Bearer ${token}` },
+});
+```
+
 ### With Type Safety
 
 ```tsx

@@ -178,6 +178,7 @@ class SSESharedWorker {
   private async connectWithFetch(url: string, options: SSEOptions) {
     const {
       headers = {},
+      credentials = 'same-origin',
       maxRetryDelay = 30000,
       initialRetryDelay = 1000,
       maxRetries = 5,
@@ -208,7 +209,7 @@ class SSESharedWorker {
         headers: requestHeaders,
         signal: this.fetchController.signal,
         cache: 'no-store',
-        credentials: 'include',
+        credentials,
       });
 
       if (!response.ok) {
@@ -333,6 +334,7 @@ class SSESharedWorker {
 
   private connectWithEventSource(url: string, options: SSEOptions) {
     const {
+      credentials = 'same-origin',
       maxRetryDelay = 30000,
       initialRetryDelay = 1000,
       maxRetries = 5,
@@ -344,7 +346,9 @@ class SSESharedWorker {
       this.eventSource = null;
     }
 
-    this.eventSource = new EventSource(url);
+    this.eventSource = new EventSource(url, {
+      withCredentials: credentials === 'include',
+    });
 
     this.eventSource.onopen = () => {
       if (this.currentConnection) {

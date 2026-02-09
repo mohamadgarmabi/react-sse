@@ -189,7 +189,8 @@ export function useSSE<T = any, K extends string = string>(
           setError(null);
 
           abortController = new AbortController();
-          
+          const credentials = optionsRef.current?.credentials ?? 'same-origin';
+
           const requestHeaders: HeadersInit = {
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -203,7 +204,7 @@ export function useSSE<T = any, K extends string = string>(
             headers: requestHeaders,
             signal: abortController.signal,
             cache: 'no-store',
-            credentials: 'include',
+            credentials,
           });
 
           if (!response.ok) {
@@ -370,7 +371,11 @@ export function useSSE<T = any, K extends string = string>(
       setStatus('connecting');
       setError(null);
 
-      const eventSource = new EventSource(url);
+
+      const credentials = optionsRef.current?.credentials ?? 'same-origin';
+      const eventSource = new EventSource(url, {
+        withCredentials: credentials === 'include',
+      });
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {

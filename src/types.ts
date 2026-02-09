@@ -41,7 +41,15 @@ export interface SSEOptions {
    * Additional headers to send with the request
    */
   headers?: Record<string, string>;
-  
+
+  /**
+   * Fetch credentials mode. Use `'omit'` or `'same-origin'` if you get CORS errors
+   * (e.g. "Failed to fetch"); `'include'` sends cookies and requires server
+   * to respond with Access-Control-Allow-Credentials: true and a specific origin.
+   * @default 'same-origin'
+   */
+  credentials?: RequestCredentials;
+
   /**
    * Whether to automatically reconnect on connection loss
    * @default true
