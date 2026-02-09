@@ -1,6 +1,6 @@
 {
   "name": "sse-shared-worker-react-hook",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Type-safe Server-Sent Events (SSE) hook for React with token authentication and retry logic",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,11 @@
     "build:worker": "tsc --project tsconfig.worker.json && node scripts/fix-worker.js",
     "prepublishOnly": "npm run build"
   },
+    "repository": {
+    "type": "git",
+    "url": "https://github.com/mohamadgarmabi/sse-shared-worker-react-hook.git"
+  },
+  "homepage": "https://github.com/mohamadgarmabi/sse-shared-worker-react-hook#readme",
   "keywords": [
     "react",
     "sse",

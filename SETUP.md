@@ -2,22 +2,27 @@
 
 This guide shows how to use Shared Worker in different projects.
 
-## Building the Shared Worker File
+## Building the Shared Worker File (package maintainers)
 
-After building the package, place the `dist/shared-worker.js` file in your project's `public` folder.
+After building the package, the worker is emitted to `dist/shared-worker.js` and then copied to `public/shared-worker.js`. Both are published in the npm package.
 
-```bash
-npm run build
-cp dist/shared-worker.js public/shared-worker.js
-```
+## Consuming the package (your app)
+
+Copy the Shared Worker from the installed package into your app’s `public` (or equivalent) folder so it is served at `/shared-worker.js`. The hook defaults to `workerPath: '/shared-worker.js'`.
+
+**Correct paths in the published package:**
+- `node_modules/sse-shared-worker-react-hook/public/shared-worker.js`
+- `node_modules/sse-shared-worker-react-hook/dist/shared-worker.js`
 
 ## Vite
 
-### Method 1: Manual Copy
+### Method 1: Manual copy
 
-Copy the `dist/shared-worker.js` file to the `public` folder.
+```bash
+cp node_modules/sse-shared-worker-react-hook/public/shared-worker.js public/shared-worker.js
+```
 
-### Method 2: Using Plugin
+### Method 2: Using plugin
 
 ```ts
 // vite.config.ts
@@ -34,7 +39,7 @@ export default defineConfig({
       buildStart() {
         const workerPath = join(
           __dirname,
-          'node_modules/@your-org/react-sse/dist/shared-worker.js'
+          'node_modules/sse-shared-worker-react-hook/public/shared-worker.js'
         );
         const publicPath = join(__dirname, 'public/shared-worker.js');
         copyFileSync(workerPath, publicPath);
@@ -46,19 +51,19 @@ export default defineConfig({
 
 ## Create React App
 
-Copy the `dist/shared-worker.js` file to the `public` folder.
-
 ```bash
-cp node_modules/@your-org/react-sse/dist/shared-worker.js public/shared-worker.js
+cp node_modules/sse-shared-worker-react-hook/public/shared-worker.js public/shared-worker.js
 ```
 
 ## Next.js
 
-### Method 1: Using the `public` Folder
+### Method 1: Using the `public` folder
 
-Copy the `dist/shared-worker.js` file to the `public` folder.
+```bash
+cp node_modules/sse-shared-worker-react-hook/public/shared-worker.js public/shared-worker.js
+```
 
-### Method 2: Using API Route (for SSR)
+### Method 2: Using API route (for SSR)
 
 ```ts
 // pages/api/shared-worker.js
@@ -68,7 +73,7 @@ import { join } from 'path';
 export default function handler(req, res) {
   const workerPath = join(
     process.cwd(),
-    'node_modules/@your-org/react-sse/dist/shared-worker.js'
+    'node_modules/sse-shared-worker-react-hook/public/shared-worker.js'
   );
   const workerCode = readFileSync(workerPath, 'utf8');
   
@@ -101,7 +106,7 @@ module.exports = {
         {
           from: path.resolve(
             __dirname,
-            'node_modules/@your-org/react-sse/dist/shared-worker.js'
+            'node_modules/sse-shared-worker-react-hook/public/shared-worker.js'
           ),
           to: path.resolve(__dirname, 'public/shared-worker.js'),
         },
@@ -114,7 +119,7 @@ module.exports = {
 ## Usage in Component
 
 ```tsx
-import { useSSEWithSharedWorker } from '@your-org/react-sse';
+import { useSSEWithSharedWorker } from 'sse-shared-worker-react-hook';
 
 function MyComponent() {
   const { status, lastEvent, events } = useSSEWithSharedWorker(

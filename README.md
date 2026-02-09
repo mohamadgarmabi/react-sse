@@ -243,7 +243,7 @@ export default defineConfig({
       name: 'copy-shared-worker',
       buildStart() {
         copyFileSync(
-          join(__dirname, 'node_modules/sse-shared-worker-react-hook/dist-hook/shared-worker.js'),
+          join(__dirname, 'node_modules/sse-shared-worker-react-hook/public/shared-worker.js'),
           join(__dirname, 'public/shared-worker.js')
         );
       },
@@ -253,7 +253,10 @@ export default defineConfig({
 ```
 
 **For Create React App:**
-Copy the `dist/shared-worker.js` file to the `public` folder.
+Copy the Shared Worker file from the package to your `public` folder:
+```bash
+cp node_modules/sse-shared-worker-react-hook/public/shared-worker.js public/shared-worker.js
+```
 
 **For Webpack:**
 ```js
@@ -265,13 +268,54 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
-          from: 'node_modules/sse-shared-worker-react-hook/dist-hook/shared-worker.js',
+          from: 'node_modules/sse-shared-worker-react-hook/public/shared-worker.js',
           to: 'shared-worker.js',
         },
       ],
     }),
   ],
 };
+```
+
+### Browser support and fallback (SSE without Shared Worker)
+
+Shared Worker is **not** supported in:
+- Internet Explorer (all versions)
+- Safari iOS 7–15.8
+- Some private or embedded browser contexts
+- Non-HTTPS in some browsers
+
+You can check support at runtime:
+
+```tsx
+import { isSharedWorkerSupported } from 'sse-shared-worker-react-hook';
+
+if (isSharedWorkerSupported()) {
+  // Use useSSEWithSharedWorker for shared connection across tabs
+} else {
+  // Use useSSE for single-tab SSE (still works)
+}
+```
+
+To use Shared Worker when available and fall back to normal SSE otherwise (one hook, same API):
+
+```tsx
+import { useSSEAdaptive } from 'sse-shared-worker-react-hook';
+
+function AdaptiveComponent() {
+  const { status, lastEvent, events, error } = useSSEAdaptive(
+    '/api/events',
+    { token: 'your-token' },
+    '/shared-worker.js'
+  );
+  // Same API as useSSE / useSSEWithSharedWorker — SSE works in both cases
+  return (
+    <div>
+      <p>Status: {status}</p>
+      {lastEvent && <pre>{JSON.stringify(lastEvent.data, null, 2)}</pre>}
+    </div>
+  );
+}
 ```
 
 ### Example using Shared Worker
@@ -450,6 +494,29 @@ A React Hook for connecting to an SSE endpoint using Shared Worker (one connecti
 #### Returns
 
 `SSEReturn<T, K>` - See below for details.
+
+### `useSSEAdaptive<T, K>(url, options?, workerPath?)`
+
+A React Hook that uses Shared Worker when supported and falls back to normal SSE otherwise. Same API as `useSSE` / `useSSEWithSharedWorker`.
+
+#### Generic Parameters
+
+- `T` - Type of the event data (default: `any`)
+- `K` - Type of the event type (default: `string`)
+
+#### Parameters
+
+- `url: string | null` - URL endpoint for SSE
+- `options?: SSEOptions` - Configuration options
+- `workerPath?: string` - Path to Shared Worker file (default: '/shared-worker.js')
+
+#### Returns
+
+`SSEReturn<T, K>` - See below for details.
+
+### `isSharedWorkerSupported(): boolean`
+
+Returns `true` if the environment supports Shared Worker (browser, `window.SharedWorker` defined). Use this to branch logic or to decide whether to use `useSSEWithSharedWorker` vs `useSSE`. For a single hook that auto-fallbacks, use `useSSEAdaptive`.
 
 ### `SSEReturn<T, K>`
 
