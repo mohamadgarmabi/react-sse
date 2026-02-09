@@ -135,7 +135,7 @@ class SSESharedWorker {
         }
     }
     async connectWithFetch(url, options) {
-        const { headers = {}, maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, retryDelayFn, } = options;
+        const { headers = {}, credentials = 'same-origin', maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, retryDelayFn, } = options;
         try {
             if (this.currentConnection) {
                 this.currentConnection.status = 'connecting';
@@ -157,7 +157,7 @@ class SSESharedWorker {
                 headers: requestHeaders,
                 signal: this.fetchController.signal,
                 cache: 'no-store',
-                credentials: 'include',
+                credentials,
             });
             if (!response.ok) {
                 // Handle 401 specifically - authentication error
@@ -270,13 +270,15 @@ class SSESharedWorker {
         }
     }
     connectWithEventSource(url, options) {
-        const { maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, } = options;
+        const { credentials = 'same-origin', maxRetryDelay = 30000, initialRetryDelay = 1000, maxRetries = 5, } = options;
         // Close existing EventSource if any
         if (this.eventSource) {
             this.eventSource.close();
             this.eventSource = null;
         }
-        this.eventSource = new EventSource(url);
+        this.eventSource = new EventSource(url, {
+            withCredentials: credentials === 'include',
+        });
         this.eventSource.onopen = () => {
             if (this.currentConnection) {
                 this.currentConnection.status = 'connected';
