@@ -1,6 +1,6 @@
 {
   "name": "sse-shared-worker-react-hook",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Type-safe Server-Sent Events (SSE) hook for React with token authentication and retry logic",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

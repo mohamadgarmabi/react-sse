@@ -30,6 +30,48 @@ type Props<T = any> = {
   onCustomHeadersChange?: (headers: Array<{ key: string; value: string }>) => void;
 };
 
+// One line SharedWorker support
+const isSharedWorkerSupported: boolean =
+  typeof window !== "undefined" && "SharedWorker" in window;
+
+// Helper to get device info as string (OS/Device/Browser — naive best effort)
+function getDeviceInfo(): string {
+  if (typeof navigator === "undefined") return "Unknown";
+  let device = "Unknown";
+  const ua = navigator.userAgent || "";
+
+  // OS
+  if (/android/i.test(ua)) device = "Android";
+  else if (/iPad|iPhone|iPod/.test(ua)) device = "iOS";
+  else if (/Win/.test(ua)) device = "Windows";
+  else if (/Mac/.test(ua)) device = "macOS";
+  else if (/Linux/.test(ua)) device = "Linux";
+
+  // Browser
+  let browser = "";
+  if (/Chrome\//.test(ua) && !/Edge\//.test(ua))
+    browser = "Chrome";
+  else if (/Safari\//.test(ua) && !/Chrome\//.test(ua))
+    browser = "Safari";
+  else if (/Firefox\//.test(ua))
+    browser = "Firefox";
+  else if (/Edg\//.test(ua))
+    browser = "Edge";
+  else if (/MSIE |Trident\//.test(ua))
+    browser = "IE";
+
+  // (Optional) append device type (Mobile/Desktop)
+  let type = "";
+  if (/Mobile|Android|iP(hone|od|ad)/.test(ua)) {
+    type = "Mobile";
+  } else {
+    type = "Desktop";
+  }
+
+  // Final label: OS (type), browser
+  return [device, `(${type})`, browser].filter(Boolean).join(" ");
+}
+
 const getPositionStyles = (position: Position, isOpen: boolean): React.CSSProperties => {
   const base: React.CSSProperties = {
     position: "fixed",
@@ -543,6 +585,10 @@ export function SSEDevtools<T = any>({
     );
   }
 
+  // Get device/UA info + isSharedWorkerSupported, memoized
+  const deviceInfo = useMemo(() => getDeviceInfo(), []);
+  // (note: isSharedWorkerSupported is a constant above)
+
   return (
     <div style={positionStyles}>
       {!isOpen ? (
@@ -604,6 +650,24 @@ export function SSEDevtools<T = any>({
               </span>
               {/* Action buttons: below header */}
             </div>
+          </div>
+
+          {/* "Current Device/Browser" + SharedWorker support line */}
+          <div style={{ ...rowStyle, marginBottom: 0 }}>
+            <span style={{ fontWeight: 600, color: "#64748b" }}>
+              Device
+            </span>
+            <span style={{ fontSize: 12, color: "#334155" }}>{deviceInfo}</span>
+          </div>
+          <div style={{ ...rowStyle, borderBottom: "none", marginBottom: 8, paddingBottom: 0 }}>
+            <span style={{ fontWeight: 600, color: "#64748b" }}>SharedWorker Supported</span>
+            <span style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: isSharedWorkerSupported ? "#16a34a" : "#991b1b"
+            }}>
+              {isSharedWorkerSupported ? "Yes" : "No"}
+            </span>
           </div>
 
           {/* Buttons: column under header */}
