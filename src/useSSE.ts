@@ -48,11 +48,16 @@ export function useSSE<T = any, K extends string = string>(
   const retryAttemptRef = useRef(0);
   const shouldReconnectRef = useRef(autoReconnect);
   const urlRef = useRef(url);
+  const optionsRef = useRef(options);
 
-  // Update URL ref when it changes
+  // Keep refs in sync; avoid putting options/headers in effect deps to prevent update loops
   useEffect(() => {
     urlRef.current = url;
   }, [url]);
+  useEffect(() => {
+    optionsRef.current = options;
+    shouldReconnectRef.current = options.autoReconnect ?? true;
+  }, [options]);
 
   // Calculate retry delay based on attempt number
   const calculateRetryDelay = useCallback((attempt: number): number => {
@@ -152,8 +157,10 @@ export function useSSE<T = any, K extends string = string>(
     };
   }, [url, connectionMode, autoConnectDelay]);
 
-  // Connect to SSE endpoint
+  // Connect to SSE endpoint (read headers from ref to avoid dependency on options/headers and prevent update loops)
   useEffect(() => {
+    const currentHeaders = optionsRef.current?.headers ?? {};
+
     if (!url) {
       setStatus('disconnected');
       // Clear cached data when URL is removed
@@ -169,7 +176,7 @@ export function useSSE<T = any, K extends string = string>(
 
     // If we have custom headers, we need to use fetch API with custom headers
     // since EventSource doesn't support custom headers
-    if (Object.keys(headers).length > 0) {
+    if (Object.keys(currentHeaders).length > 0) {
       // For authenticated requests, we'll use fetch with ReadableStream
       // This is a more complex implementation but necessary for custom headers
       let abortController: AbortController | null = null;
@@ -188,7 +195,7 @@ export function useSSE<T = any, K extends string = string>(
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0',
-            ...headers,
+            ...currentHeaders,
           };
 
           const response = await fetch(url, {
@@ -466,7 +473,7 @@ export function useSSE<T = any, K extends string = string>(
         cleanup();
       };
     }
-  }, [url, shouldConnect, maxRetries, calculateRetryDelay, cleanup, headers]);
+  }, [url, shouldConnect, maxRetries, calculateRetryDelay, cleanup]);
 
   // Cleanup on unmount
   useEffect(() => {
