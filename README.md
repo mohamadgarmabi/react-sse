@@ -87,6 +87,15 @@ If you get **"Failed to fetch"** or CORS errors when connecting to a **cross-ori
   - `Access-Control-Allow-Credentials: true`
 - **Option 3**: Use a same-origin proxy so the browser only talks to your domain.
 
+**Why CORS only fails when you send headers:**  
+Sending custom headers (e.g. `Authorization`) makes the request **non-simple**. The browser then sends a **preflight** `OPTIONS` request first. The server must:
+
+1. Respond to **OPTIONS** with status 2xx.
+2. Include **`Access-Control-Allow-Headers`** with the headers you send (e.g. `Authorization`), or `*`.
+3. Include **`Access-Control-Allow-Origin`** (your origin or `*`; no `*` if using credentials).
+
+If the server does not handle OPTIONS or does not allow your headers in `Access-Control-Allow-Headers`, CORS fails only when you add headers; without headers the request stays "simple" and may succeed.
+
 ```tsx
 // Example: avoid credentials for cross-origin to reduce CORS strictness
 useSSE('https://api.other-domain.com/events', {

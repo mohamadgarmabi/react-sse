@@ -193,9 +193,6 @@ export function useSSE<T = any, K extends string = string>(
 
           const requestHeaders: HeadersInit = {
             'Accept': 'text/event-stream',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
             ...currentHeaders,
           };
 
