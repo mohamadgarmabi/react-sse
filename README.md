@@ -345,6 +345,65 @@ function AdaptiveComponent() {
 }
 ```
 
+### Global State with `SSEProvider` (Context API)
+
+If you need one global SSE state in your app (without installing any state library), use `SSEProvider` + `useSSEContext`.
+
+`SSEProvider` uses `useSSEAdaptive` internally, so it automatically:
+- uses SharedWorker when supported
+- falls back to regular SSE when SharedWorker is not supported
+
+```tsx
+import React from 'react';
+import { SSEProvider } from 'sse-shared-worker-react-hook';
+import { NotificationsPanel } from './NotificationsPanel';
+import { ConnectionBadge } from './ConnectionBadge';
+
+export default function App() {
+  return (
+    <SSEProvider
+      url="/api/events"
+      options={{
+        maxRetries: 5,
+        autoReconnect: true,
+      }}
+      workerPath="/shared-worker.js"
+    >
+      <ConnectionBadge />
+      <NotificationsPanel />
+    </SSEProvider>
+  );
+}
+```
+
+Then consume the same global state anywhere inside the provider:
+
+```tsx
+import React from 'react';
+import { useSSEContext } from 'sse-shared-worker-react-hook';
+
+export function ConnectionBadge() {
+  const { status, retryCount, reconnect, close } = useSSEContext();
+
+  return (
+    <div>
+      <p>Status: {status}</p>
+      <p>Retry count: {retryCount}</p>
+      <button onClick={reconnect}>Reconnect</button>
+      <button onClick={close}>Disconnect</button>
+    </div>
+  );
+}
+```
+
+If you need a safe optional read (no throw when provider is missing), use:
+
+```tsx
+import { useOptionalSSEContext } from 'sse-shared-worker-react-hook';
+
+const sse = useOptionalSSEContext();
+```
+
 ### Example using Shared Worker
 
 ```tsx
@@ -540,6 +599,28 @@ A React Hook that uses Shared Worker when supported and falls back to normal SSE
 #### Returns
 
 `SSEReturn<T, K>` - See below for details.
+
+### `SSEProvider<T, K>(props)`
+
+Global SSE provider built on React Context.  
+Internally uses `useSSEAdaptive` to support SharedWorker with automatic fallback.
+
+#### Props
+
+- `url: string | null` - SSE endpoint URL
+- `options?: SSEOptions` - Same options as hooks
+- `workerPath?: string` - Shared Worker path (default: `/shared-worker.js`)
+- `children: ReactNode` - Subtree that can access SSE context
+
+### `useSSEContext<T, K>()`
+
+Returns global `SSEReturn<T, K>` from `SSEProvider`.
+
+- Throws an error if used outside of `SSEProvider`.
+
+### `useOptionalSSEContext<T, K>()`
+
+Returns global `SSEReturn<T, K>` when provider exists, otherwise `null`.
 
 ### `isSharedWorkerSupported(): boolean`
 
