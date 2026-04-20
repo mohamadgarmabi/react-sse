@@ -1,0 +1,60 @@
+{
+  "name": "@mrgt/sse",
+  "version": "0.1.0",
+  "description": "Framework-agnostic SSE toolkit with React, Vue, and Solid adapters",
+  "type": "module",
+  "main": "dist/react/index.js",
+  "types": "dist/react/index.d.ts",
+  "exports": {
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
+    "./solid": {
+      "types": "./dist/solid/index.d.ts",
+      "import": "./dist/solid/index.js"
+    },
+    "./shared": {
+      "types": "./dist/shared/types.d.ts",
+      "import": "./dist/shared/types.js"
+    },
+    "./worker": {
+      "types": "./dist/shared/worker-types.d.ts",
+      "import": "./dist/shared/shared-worker.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "bin": {
+    "mrgt-sse": "./bin/init-worker.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "vue": ">=3.3.0",
+    "solid-js": ">=1.8.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "sse",
+    "server-sent-events",
+    "react",
+    "vue",
+    "solidjs",
+    "shared-worker"
+  ],
+  "license": "MIT"
+}
