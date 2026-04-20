@@ -1,6 +1,6 @@
 {
   "name": "sse-crossframework",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Framework-agnostic SSE toolkit with React, Vue, and Solid adapters",
   "type": "module",
   "main": "dist/react/index.js",
