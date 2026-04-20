@@ -1,5 +1,5 @@
 {
-  "name": "mrgt/sse",
+  "name": "sse-crossframework",
   "version": "1.0.0",
   "description": "Framework-agnostic SSE toolkit with React, Vue, and Solid adapters",
   "type": "module",
@@ -33,7 +33,7 @@
     "README.md"
   ],
   "bin": {
-    "mrgt-sse": "./bin/init-worker.mjs"
+    "sse-crossframework": "./bin/init-worker.mjs"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -58,7 +58,9 @@
     "react",
     "vue",
     "solidjs",
-    "shared-worker"
+    "shared-worker",
+    "crossframework",
+    "adapter"
   ],
   "license": "MIT"
 }
