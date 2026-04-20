@@ -1,6 +1,6 @@
 {
-  "name": "@mrgt/sse",
-  "version": "0.1.0",
+  "name": "mrgt/sse",
+  "version": "1.0.0",
   "description": "Framework-agnostic SSE toolkit with React, Vue, and Solid adapters",
   "type": "module",
   "main": "dist/react/index.js",
@@ -47,6 +47,10 @@
   "devDependencies": {
     "@types/react": "^19.2.2",
     "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mohamadgarmabi/sse-shared-worker-react-hook.git"
   },
   "keywords": [
     "sse",
